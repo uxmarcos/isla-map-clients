@@ -7,6 +7,13 @@ import { processLogo } from './logo'
 import { drawMap, loadMapFonts, loadTemplate } from './render'
 import { drawLetter, LETTER_H, LETTER_W, loadLetterFonts, loadPaper } from '../letter/render'
 import { letterLogo, toLetterData } from '../letter/data'
+import { checkQrUrl } from '../qr'
+
+/** A map printed without its gift link loses the gift: never export one. */
+function assertQr(c: Client) {
+  const q = checkQrUrl(c.qrUrl)
+  if (!q.ok) throw new Error(`${c.company || 'Mapa sem nome'}: ${q.error}`)
+}
 
 // Print size: A4 landscape (the letter is A4 portrait).
 export const PRINT_MM = { w: 297, h: 210 }
@@ -29,6 +36,7 @@ function placement(pageW: number, pageH: number, margin?: boolean) {
 
 /** Renders a client's map at full template resolution. */
 export async function renderFull(c: Client): Promise<HTMLCanvasElement> {
+  assertQr(c)
   const t = TEMPLATES[c.style]
   const [template] = await Promise.all([loadTemplate(c.style), loadMapFonts()])
   const logo = c.logo ? await processLogo(c.logo, c.logoMode, t.ink) : null
@@ -41,6 +49,7 @@ export async function renderFull(c: Client): Promise<HTMLCanvasElement> {
 
 /** Renders a client's letter at full A4 resolution (300 dpi). */
 export async function renderLetter(c: Client): Promise<HTMLCanvasElement> {
+  assertQr(c)
   const [paper, logo] = await Promise.all([loadPaper(c.style), letterLogo(c), loadLetterFonts()])
   const canvas = document.createElement('canvas')
   canvas.width = LETTER_W
@@ -99,7 +108,11 @@ export async function downloadPdf(c: Client, o: PdfOptions = {}) {
   download(await pdfBlob(c, o), `${fileBase(c)}${o.margin ? '-margem' : ''}.pdf`)
 }
 
-export async function downloadZip(list: Client[], onProgress?: (done: number) => void) {
+/** Maps without a valid QR URL are left out; returns their names. */
+export async function downloadZip(all: Client[], onProgress?: (done: number) => void): Promise<string[]> {
+  const skipped = all.filter((c) => !checkQrUrl(c.qrUrl).ok).map((c) => c.company || 'Sem nome')
+  const list = all.filter((c) => checkQrUrl(c.qrUrl).ok)
+  if (!list.length) return skipped
   const zip = new JSZip()
   for (let i = 0; i < list.length; i++) {
     zip.file(`${fileBase(list[i])}.pdf`, await pdfBlob(list[i]))
@@ -107,4 +120,5 @@ export async function downloadZip(list: Client[], onProgress?: (done: number) =>
     onProgress?.(i + 1)
   }
   download(await zip.generateAsync({ type: 'blob' }), `isla-treasure-maps-${new Date().toISOString().slice(0, 10)}.zip`)
+  return skipped
 }

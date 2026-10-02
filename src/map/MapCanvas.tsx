@@ -28,7 +28,7 @@ export function MapCanvas({ client, resolution = 2200, className = '' }: { clien
       const canvas = ref.current
       canvas.width = resolution
       canvas.height = Math.round((resolution * t.h) / t.w)
-      drawMap(canvas, client.style, template, toMapData(client, settings), logo)
+      drawMap(canvas, client.style, template, toMapData(client), logo)
       setReady(true)
     })()
     return () => {

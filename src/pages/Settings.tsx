@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DEFAULT_SETTINGS, updateSettings, useSettings } from '../store'
 import { REQUIRE_LOGIN } from '../supabase'
 import { LANG_LABEL, LANG_ORDER, type Lang } from '../types'
-import { Label, Rise } from '../ui/kit'
+import { Rise } from '../ui/kit'
 
 export function Settings() {
   const s = useSettings()
@@ -15,13 +15,7 @@ export function Settings() {
       <Rise text="Padrões do *mapa*." as="h1" className="text-h2 mt-6" />
 
       <div className="card fade-up mt-12 max-w-2xl space-y-8 rounded-3xl p-5 sm:p-7" style={{ animationDelay: '150ms' }}>
-        <section>
-          <Label hint="impresso no mapa e codificado no QR">Domínio da demo</Label>
-          <input className="field" value={s.baseUrl} onChange={(e) => updateSettings({ baseUrl: e.target.value })} />
-          <p className="mt-2 text-[12px] text-grey-2">Cada mapa aponta para {s.baseUrl}/nome-da-empresa.</p>
-        </section>
-
-        <section className="hairline-t space-y-4 pt-7">
+        <section className="space-y-4">
           <div className="flex items-baseline justify-between">
             <p className="eyebrow">Etapas padrão de novos mapas</p>
             <button

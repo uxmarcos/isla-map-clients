@@ -39,7 +39,12 @@ export function ClientList() {
   async function exportAll() {
     setZipping(`0/${shown.length}`)
     try {
-      await downloadZip(shown, (n) => setZipping(`${n}/${shown.length}`))
+      const skipped = await downloadZip(shown, (n) => setZipping(`${n}/${shown.length}`))
+      if (skipped.length)
+        toast(skipped.length === shown.length ? 'Nenhum mapa tem URL do QR: nada foi exportado.' : `${skipped.length} sem URL do QR ficaram de fora do .zip:`, {
+          tone: 'error',
+          detail: skipped,
+        })
     } finally {
       setZipping(null)
     }

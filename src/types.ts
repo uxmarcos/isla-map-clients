@@ -55,7 +55,11 @@ export interface Client {
   dangers: Dangers
   /** Last plaque, next to the X. */
   destination: string
-  logo: string | null // PNG data URL, downscaled
+  logo: string | null // PNG data URL, downscaled (in memory; the database keeps it in Storage at logoPath)
+  /** Storage path of the logo in the maps-logos bucket (database mode). */
+  logoPath?: string | null
+  /** The gift's dynamic link from isla-app's /admin/gifts, printed in the QR exactly as given. */
+  qrUrl?: string
   logoMode: LogoMode
   /** Edited letter text; anything missing falls back to the default for the map's language. */
   letter?: Partial<LetterText>
@@ -75,8 +79,8 @@ export interface MapData {
   dangers: Dangers
   /** Last plaque and the subtitle ("The path to …"). */
   destination: string
-  url: string // printed, without protocol
-  qrUrl: string // encoded in the QR
+  /** Encoded in the QR exactly as given; empty until it is pasted (exports are blocked then). */
+  qrUrl: string
 }
 
 export const STATUS_LABEL: Record<Status, string> = {

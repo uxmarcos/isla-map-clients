@@ -22,10 +22,10 @@ export const loadMapFonts = () =>
 type Ctx = CanvasRenderingContext2D
 
 /** Fixed text printed on the map. */
-const COPY: Record<Lang, { titlePrefix: string; titleLast: string; path: string; visit: string; fallback: string; here: string }> = {
-  en: { titlePrefix: 'THE', titleLast: 'TREASURE MAP', path: 'THE PATH TO', visit: 'VISIT', fallback: 'COMPANY', here: 'YOU ARE HERE' },
+const COPY: Record<Lang, { titlePrefix: string; titleLast: string; path: string; scan: string; fallback: string; here: string }> = {
+  en: { titlePrefix: 'THE', titleLast: 'TREASURE MAP', path: 'THE PATH TO', scan: 'SCAN TO OPEN YOUR GIFT', fallback: 'COMPANY', here: 'YOU ARE HERE' },
   // No article before the name: Portuguese would need "DA" or "DO" depending on the company.
-  pt: { titlePrefix: '', titleLast: 'MAPA DO TESOURO', path: 'O CAMINHO ATÉ', visit: 'ACESSE', fallback: 'EMPRESA', here: 'VOCÊ ESTÁ AQUI' },
+  pt: { titlePrefix: '', titleLast: 'MAPA DO TESOURO', path: 'O CAMINHO ATÉ', scan: 'ESCANEIE PARA ABRIR SEU PRESENTE', fallback: 'EMPRESA', here: 'VOCÊ ESTÁ AQUI' },
 }
 
 const upper = (s: string) => s.trim().toLocaleUpperCase('pt-BR')
@@ -73,7 +73,8 @@ export function drawMap(
 
   drawQr(ctx, t, data.qrUrl)
   ctx.fillStyle = t.ink
-  const urlW = drawFitted(ctx, `${copy.visit} ${data.url.toUpperCase()}`, t.fonts.url, t.url)
+  // Where the URL used to be: the gift link is not something to type in, so only an invitation.
+  const urlW = drawFitted(ctx, copy.scan, t.fonts.url, t.url)
   if (t.urlRules) drawUrlRules(ctx, t, urlW)
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -639,7 +640,14 @@ function drawQr(ctx: Ctx, t: TemplateSpec, url: string) {
     ctx.stroke()
   }
 
-  const qr = QRCode.create(url || 'https://isla.to', { errorCorrectionLevel: 'M' })
+  if (!url) {
+    // No gift link yet: say so instead of printing a code that goes nowhere (exports are blocked too).
+    ctx.fillStyle = t.ink
+    setFont(ctx, t.fonts.url.replace('{s}', String(Math.round(frame * 0.085))), frame * 0.012)
+    ctx.fillText('QR PENDENTE', cx, cy + frame * 0.03)
+    return
+  }
+  const qr = QRCode.create(url, { errorCorrectionLevel: 'M' })
   const n = qr.modules.size
   const area = frame - 92 * u
   const m = area / n

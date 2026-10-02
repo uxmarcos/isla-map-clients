@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { slugify, toMapData, useClients, useSettings } from '../store'
+import { slugify, useClients } from '../store'
 import { LANG_LABEL, STATUS_LABEL, STYLE_LABEL, type Client } from '../types'
 import { Button, Rise } from '../ui/kit'
 import { navigate } from '../router'
@@ -56,7 +56,6 @@ const date = (t: number) => new Date(t).toLocaleDateString('pt-BR', { day: '2-di
 
 export function Clients() {
   const maps = useClients()
-  const settings = useSettings()
   const [q, setQ] = useState('')
   const customers = useMemo(() => group(maps), [maps])
   const needle = slugify(q)
@@ -108,7 +107,7 @@ export function Clients() {
                     <h2 className="text-h3 truncate">{c.company || <span className="text-grey-2">Sem nome</span>}</h2>
                     <dl className="mt-3 grid gap-x-8 gap-y-2 text-[13px] sm:grid-cols-2 xl:grid-cols-4">
                       <Field label="Meta" value={c.destination || '—'} />
-                      <Field label="Demo" value={toMapData(c, settings).url} />
+                      <Field label="URL do QR" value={c.qrUrl || 'Falta'} />
                       <Field label="Mapa" value={`${STYLE_LABEL[c.style]} · ${LANG_LABEL[c.lang]}`} />
                       <Field label="Atualizado" value={date(c.updatedAt)} />
                     </dl>

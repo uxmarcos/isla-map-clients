@@ -18,7 +18,7 @@ export function LetterCanvas({ client, resolution = 1600, className = '' }: { cl
       const canvas = ref.current
       canvas.width = resolution
       canvas.height = Math.round((resolution * LETTER_H) / LETTER_W)
-      drawLetter(canvas, client.style, paper, toLetterData(client, logo, settings))
+      drawLetter(canvas, client.style, paper, toLetterData(client, logo))
       setReady(true)
     })()
     return () => {

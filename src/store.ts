@@ -1,22 +1,20 @@
 import { useSyncExternalStore } from 'react'
-import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Client, Dangers, Lang, MapData } from './types'
-import { currentEmail, supabase } from './supabase'
+import { supabase } from './supabase'
+import { downloadLogo, logoPathFor, removeLogos, uploadLogo } from './logos'
 import { toast } from './ui/toast'
 
-// Maps and settings live in Supabase (schema maps, tables maps and settings),
-// shared by the whole team. These keys are the old browser-only storage, kept for importing.
+// Maps and settings live in Supabase (schema maps: tables clients and settings, logos in the
+// maps-logos bucket), shared by Isla's super admins. The schema is a migration in isla-app.
+// These keys are the old browser-only storage, kept for importing.
 const KEY = 'isla-map-clients:v1'
 const SETTINGS_KEY = 'isla-map-settings:v1'
 
 export interface Settings {
-  /** Printed on the map and encoded in the QR, followed by /{slug}. */
-  baseUrl: string
   defaultStages: Record<Lang, string[]>
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  baseUrl: 'app.isla.to',
   defaultStages: {
     en: ['Find your voice', 'Grow your ICP network', 'Show up every week', 'Warm the right buyers', 'Book the meetings'],
     pt: ['Encontre sua voz', 'Cresça sua rede de ICP', 'Apareça toda semana', 'Aqueça os compradores certos', 'Agende as reuniões'],
@@ -76,13 +74,12 @@ function migrateSettings(s: Partial<Settings>): Settings {
 export type SyncState =
   | { state: 'loading' }
   | { state: 'ready' }
-  | { state: 'denied' } // signed in, but the email is not in allowed_emails
+  | { state: 'denied' } // signed in, but not an Isla super admin
   | { state: 'error'; message: string }
 
 let clients: Client[] = []
 let settings: Settings = DEFAULT_SETTINGS
 let sync: SyncState = { state: 'loading' }
-let channel: RealtimeChannel | null = null
 const listeners = new Set<() => void>()
 const emit = () => listeners.forEach((l) => l())
 
@@ -112,7 +109,66 @@ function fail(e: unknown) {
   toast(`Não foi possível salvar no banco: ${e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)}`, { tone: 'error' })
 }
 
-/** Loads everything for the signed-in user and listens for changes from teammates. */
+interface Row {
+  id: string
+  data: Client
+  status: Client['status']
+  qr_url: string | null
+}
+
+/** A database row back into a map: status and QR come from their columns, the logo from Storage. */
+async function fromRow(r: Row): Promise<Client> {
+  const logo = r.data.logoPath ? await downloadLogo(supabase!, r.data.logoPath) : null
+  return migrateClient({ ...r.data, status: r.status, qrUrl: r.qr_url ?? '', logo })
+}
+
+/** A map into a row: the logo goes to Storage (uploaded only when it changed), the row keeps its path. */
+async function toRow(c: Client): Promise<Row & { logoPath: string | null }> {
+  const logoPath = c.logo ? await logoPathFor(c.id, c.logo) : null
+  // A deleted map's files are gone; if it comes back (Undo), upload again.
+  const restored = deletedIds.delete(c.id)
+  if (c.logo && logoPath && (logoPath !== c.logoPath || restored)) {
+    await uploadLogo(supabase!, logoPath, c.logo)
+    removeLogos(supabase!, c.id, logoPath).catch(() => {}) // the old file, if the logo changed
+  } else if (!c.logo && c.logoPath) removeLogos(supabase!, c.id).catch(() => {})
+  const data = { ...c, logo: null, logoPath }
+  return { id: c.id, data, status: c.status, qr_url: c.qrUrl?.trim() || null, logoPath }
+}
+
+const deletedIds = new Set<string>()
+
+const rowOnly = ({ id, data, status, qr_url }: Row) => ({ id, data, status, qr_url })
+
+/** Keeps the path of what was uploaded, so the next save doesn't upload the same logo again. */
+function remember(id: string, logoPath: string | null) {
+  clients = clients.map((x) => (x.id === id ? { ...x, logoPath } : x))
+}
+
+async function load() {
+  const [maps, sett] = await Promise.all([
+    supabase!.from('clients').select('id, data, status, qr_url'),
+    supabase!.from('settings').select('data').eq('id', 1).maybeSingle(),
+  ])
+  if (maps.error || sett.error) throw maps.error ?? sett.error
+  clients = (await Promise.all((maps.data as Row[]).map(fromRow))).sort(byNewest)
+  settings = migrateSettings((sett.data?.data as Partial<Settings>) ?? {})
+}
+
+let lastLoad = 0
+/** Teammates' changes show up when you come back to the tab (no realtime: it would touch a shared publication). */
+async function refresh() {
+  if (!supabase || sync.state !== 'ready' || Date.now() - lastLoad < 15_000) return
+  lastLoad = Date.now()
+  try {
+    await load()
+    emit()
+  } catch (e) {
+    console.error(e)
+  }
+}
+if (typeof window !== 'undefined') window.addEventListener('focus', refresh)
+
+/** Loads everything for the signed-in user, after checking they are an Isla super admin. */
 export async function connect() {
   if (!supabase) {
     // Browser-only mode (REQUIRE_LOGIN off).
@@ -123,49 +179,31 @@ export async function connect() {
   }
   sync = { state: 'loading' }
   emit()
-  const member = await supabase.rpc('is_team_member')
-  if (member.error) {
-    sync = { state: 'error', message: member.error.message }
+  const admin = await supabase.rpc('is_super_admin')
+  if (admin.error) {
+    // PGRST106: the project's API doesn't serve the maps schema yet (Settings -> API -> Exposed schemas).
+    const message =
+      admin.error.code === 'PGRST106'
+        ? 'O schema maps não está exposto na API do Supabase. No painel do projeto: Settings → API → Exposed schemas → adicionar maps.'
+        : admin.error.message
+    sync = { state: 'error', message }
     return emit()
   }
-  if (!member.data) {
+  if (!admin.data) {
     sync = { state: 'denied' }
     return emit()
   }
-  const [maps, sett] = await Promise.all([
-    supabase.from('maps').select('data'),
-    supabase.from('settings').select('data').eq('id', 1).maybeSingle(),
-  ])
-  if (maps.error || sett.error) {
-    sync = { state: 'error', message: (maps.error ?? sett.error)!.message }
-    return emit()
+  try {
+    await load()
+    lastLoad = Date.now()
+    sync = { state: 'ready' }
+  } catch (e) {
+    sync = { state: 'error', message: e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e) }
   }
-  clients = maps.data.map((r) => migrateClient(r.data as Client)).sort(byNewest)
-  settings = migrateSettings((sett.data?.data as Partial<Settings>) ?? {})
-  sync = { state: 'ready' }
   emit()
-
-  channel?.unsubscribe()
-  channel = supabase
-    .channel('map-studio')
-    .on('postgres_changes', { event: '*', schema: 'maps', table: 'maps' }, (p) => {
-      if (p.eventType === 'DELETE') clients = clients.filter((c) => c.id !== (p.old as { id: string }).id)
-      else {
-        const c = migrateClient((p.new as { data: Client }).data)
-        clients = (clients.some((x) => x.id === c.id) ? clients.map((x) => (x.id === c.id ? c : x)) : [c, ...clients]).sort(byNewest)
-      }
-      emit()
-    })
-    .on('postgres_changes', { event: '*', schema: 'maps', table: 'settings' }, (p) => {
-      if (p.eventType !== 'DELETE') settings = migrateSettings((p.new as { data: Partial<Settings> }).data)
-      emit()
-    })
-    .subscribe()
 }
 
 export function disconnect() {
-  channel?.unsubscribe()
-  channel = null
   clients = []
   settings = DEFAULT_SETTINGS
   sync = { state: 'loading' }
@@ -229,16 +267,20 @@ export function mapFrom(c: Client): Client {
   return { ...structuredClone(c), id: fresh.id, clientId: c.clientId ?? c.id, status: 'draft', notes: '', createdAt: fresh.createdAt, updatedAt: fresh.updatedAt }
 }
 
-const row = (c: Client) => ({ id: c.id, data: c, updated_at: new Date().toISOString(), updated_by: currentEmail() })
-
 /** Inserts or replaces a map: shown right away, then written to the database. */
 export async function saveClient(c: Client) {
   const saved = { ...c, slug: c.slug || uniqueSlug(c.company, c.id), updatedAt: Date.now() }
   clients = clients.some((x) => x.id === c.id) ? clients.map((x) => (x.id === c.id ? saved : x)) : [saved, ...clients]
   emit()
   if (!supabase) return persistLocal()
-  const { error } = await supabase.from('maps').upsert(row(saved))
-  if (error) fail(error)
+  try {
+    const r = await toRow(saved)
+    const { error } = await supabase.from('clients').upsert(rowOnly(r))
+    if (error) throw error
+    remember(saved.id, r.logoPath)
+  } catch (e) {
+    fail(e)
+  }
 }
 
 /** Adds many new maps at once (batch import): one write to the database. */
@@ -249,16 +291,25 @@ export async function saveClients(list: Client[]) {
   clients = [...saved, ...clients].sort(byNewest)
   emit()
   if (!supabase) return persistLocal()
-  const { error } = await supabase.from('maps').upsert(saved.map(row))
-  if (error) fail(error)
+  try {
+    const rows = await Promise.all(saved.map(toRow))
+    const { error } = await supabase.from('clients').upsert(rows.map(rowOnly))
+    if (error) throw error
+    rows.forEach((r) => remember(r.id, r.logoPath))
+  } catch (e) {
+    fail(e)
+  }
 }
 
 export async function deleteClient(id: string) {
   clients = clients.filter((c) => c.id !== id)
   emit()
   if (!supabase) return persistLocal()
-  const { error } = await supabase.from('maps').delete().eq('id', id)
-  if (error) fail(error)
+  const { error } = await supabase.from('clients').delete().eq('id', id)
+  if (error) return fail(error)
+  // Undo re-saves the map, logo included (it is still in memory), so the files can go now.
+  deletedIds.add(id)
+  removeLogos(supabase, id).catch(() => {})
 }
 
 let settingsTimer: ReturnType<typeof setTimeout> | undefined
@@ -269,7 +320,7 @@ export function updateSettings(patch: Partial<Settings>) {
   if (!supabase) return persistLocal()
   clearTimeout(settingsTimer)
   settingsTimer = setTimeout(async () => {
-    const { error } = await supabase!.from('settings').upsert({ id: 1, data: settings, updated_at: new Date().toISOString() })
+    const { error } = await supabase!.from('settings').upsert({ id: 1, data: settings })
     if (error) fail(error)
   }, 600)
 }
@@ -285,8 +336,10 @@ export function localMaps(): Client[] {
 export async function importLocalMaps() {
   const list = localMaps()
   if (!list.length) return 0
-  const { error } = await supabase!.from('maps').upsert(list.map(row))
+  const rows = await Promise.all(list.map(toRow))
+  const { error } = await supabase!.from('clients').upsert(rows.map(rowOnly))
   if (error) throw error
+  list.forEach((c, i) => (c.logoPath = rows[i].logoPath))
   clients = [...clients, ...list].sort(byNewest)
   emit()
   try {
@@ -298,9 +351,7 @@ export async function importLocalMaps() {
   return list.length
 }
 
-export function toMapData(c: Client, s: Settings = settings): MapData {
-  const slug = c.slug || 'company'
-  const base = s.baseUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')
+export function toMapData(c: Client): MapData {
   return {
     lang: c.lang,
     company: c.company,
@@ -309,7 +360,6 @@ export function toMapData(c: Client, s: Settings = settings): MapData {
     start: c.start ?? '',
     dangers: migrateDangers(c.dangers, c.lang ?? 'en'),
     destination: c.destination,
-    url: `${base}/${slug}`,
-    qrUrl: `https://${base}/${slug}`,
+    qrUrl: (c.qrUrl ?? '').trim(),
   }
 }

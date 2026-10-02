@@ -66,7 +66,7 @@ export interface LetterData {
   text: LetterText
   company: string
   goal: string
-  url: string
+  /** Empty draws a "QR pending" placeholder (exports are blocked until it is set). */
   qrUrl: string
 }
 
@@ -177,8 +177,8 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
     sy += 50 * 1.5
   }
   qr(ctx, rc, t, d.qrUrl, qrX, qrY, qrSize)
-  text(ctx, v(d.text.qrCaption).toLocaleUpperCase('pt-BR'), qrX + qrSize / 2, qrY + qrSize + 58, `700 24px ${SANS}`, t.ink, 'center', 0.2)
-  text(ctx, d.url.toUpperCase(), qrX + qrSize / 2, qrY + qrSize + 98, `500 23px ${SANS}`, t.soft, 'center', 0.14)
+  // No URL under the code: the gift link is not something to type in.
+  text(ctx, v(d.text.qrCaption).toLocaleUpperCase('pt-BR'), qrX + qrSize / 2, qrY + qrSize + 64, `700 24px ${SANS}`, t.ink, 'center', 0.2)
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
@@ -419,7 +419,11 @@ function qr(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, url: string, x: number, y:
   ctx.fillStyle = t.qrPanel
   ctx.fillRect(x + 6, y + 6, size - 12, size - 12)
   rc.rectangle(x, y, size, size, { stroke: t.ink, strokeWidth: 4, roughness: 1.3, seed: 77 })
-  const code = QRCode.create(url || 'https://isla.to', { errorCorrectionLevel: 'M' })
+  if (!url) {
+    text(ctx, 'QR PENDENTE', x + size / 2, y + size / 2 + 10, `700 26px ${SANS}`, t.soft, 'center', 0.2)
+    return
+  }
+  const code = QRCode.create(url, { errorCorrectionLevel: 'M' })
   const n = code.modules.size
   const area = size - 70
   const m = area / n

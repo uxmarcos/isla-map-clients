@@ -123,10 +123,10 @@ export function Denied({ email }: { email: string }) {
     <Shell>
       <p className="eyebrow">Sem acesso</p>
       <h1 className="text-h2 mt-6">
-        Este email ainda não está <em>liberado</em>.
+        Só para <em>super admins</em> da Isla.
       </h1>
       <p className="text-lede mt-6 max-w-md">
-        {email} não está na lista da equipe. Peça para alguém adicionar você em maps.allowed_emails no Supabase.
+        {email} entrou, mas não é super admin da Isla. O Map Studio usa as mesmas contas do app da Isla; peça acesso de super admin para quem administra o app.
       </p>
       <Button variant="ghost" className="mt-8" onClick={() => signOut()}>
         Sair

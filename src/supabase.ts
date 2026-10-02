@@ -2,11 +2,11 @@ import { createClient, type Session } from '@supabase/supabase-js'
 import { useSyncExternalStore } from 'react'
 
 /**
- * Login and shared storage are off until the team accounts and the `maps` schema exist
- * in Supabase. While off, the app opens without login and saves maps in this browser.
- * Turn on by setting this to true (and redeploying).
+ * Sign-in with the Isla product's Supabase Auth (same project), for Isla super admins only:
+ * maps live in the `maps` schema (migration in isla-app) and RLS lets nobody else in.
+ * Off = no login, maps saved only in this browser (local development without the env vars).
  */
-export const REQUIRE_LOGIN = false
+export const REQUIRE_LOGIN = true
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined

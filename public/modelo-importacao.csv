@@ -1,4 +1,4 @@
-﻿empresa;demo;meta;idioma;estilo;logo
-Acme;app.isla.to/acme;$10M ARR;en;colorido;https://acme.com/logo.png
-Padaria Pão Dourado;app.isla.to/pao-dourado;R$ 5M em vendas;pt;colorido;
-Northwind;northwind;100 new clients;en;branco;
+﻿empresa;qr;meta;idioma;estilo;logo
+Acme;https://app.isla.to/q/EXEMPLO1;$10M ARR;en;colorido;https://acme.com/logo.png
+Padaria Pão Dourado;https://app.isla.to/q/EXEMPLO2;R$ 5M em vendas;pt;colorido;
+Northwind;;100 new clients;en;branco;

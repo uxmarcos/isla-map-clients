@@ -4,13 +4,14 @@ O Map Studio cria um mapa do tesouro e uma carta para cada linha da lista.
 Envie um arquivo CSV (separado por ponto e vírgula ou vírgula) ou JSON (uma lista de objetos).
 A primeira linha do CSV é o cabeçalho, com exatamente estas colunas:
 
-empresa;demo;meta;idioma;estilo;logo
+empresa;qr;meta;idioma;estilo;logo
 
 COLUNAS
 - empresa (obrigatória): nome da empresa, como deve sair impresso. Ex.: Acme
-- demo: endereço da demo da Isla para essa empresa, que vai no QR code.
-  Pode ser o endereço completo (app.isla.to/acme) ou só o final (acme).
-  Não é o site da empresa. Vazio: usa o nome da empresa (app.isla.to/acme).
+- qr: o link do presente (QR dinâmico), copiado do painel /admin/gifts da Isla,
+  completo, começando com https:// (ex.: https://app.isla.to/q/abc123).
+  Vai no QR exatamente como está. Não invente nem monte esse link.
+  Vazio: o mapa é criado, mas só pode ser exportado depois que o link for colado.
 - meta (obrigatória): a meta final, impressa no X do mapa. Curta.
   Ex.: $10M ARR, 100 new clients, R$ 5M em vendas
 - idioma: pt (português) ou en (inglês). Vazio: en.
@@ -25,13 +26,13 @@ REGRAS
 - Se um texto tiver ponto e vírgula, coloque-o entre aspas.
 
 EXEMPLO (CSV)
-empresa;demo;meta;idioma;estilo;logo
-Acme;app.isla.to/acme;$10M ARR;en;colorido;https://acme.com/logo.png
-Padaria Pão Dourado;app.isla.to/pao-dourado;R$ 5M em vendas;pt;colorido;
-Northwind;northwind;100 new clients;en;branco;
+empresa;qr;meta;idioma;estilo;logo
+Acme;https://app.isla.to/q/EXEMPLO1;$10M ARR;en;colorido;https://acme.com/logo.png
+Padaria Pão Dourado;https://app.isla.to/q/EXEMPLO2;R$ 5M em vendas;pt;colorido;
+Northwind;;100 new clients;en;branco;
 
 PARA PEDIR A UMA IA ORGANIZAR SUA LISTA
 Cole este arquivo e a sua lista na conversa e peça:
 "Converta a minha lista para um CSV separado por ponto e vírgula com exatamente as colunas
-empresa;demo;meta;idioma;estilo;logo, seguindo as regras deste arquivo.
+empresa;qr;meta;idioma;estilo;logo, seguindo as regras deste arquivo.
 Não invente dados: deixe vazio o que não estiver na lista. Responda só com o CSV."

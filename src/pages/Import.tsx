@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { saveClients, slugify, useClients, useSettings } from '../store'
 import { LANG_LABEL, LANG_ORDER, STYLE_LABEL, STYLE_ORDER, type Client, type Lang, type MapStyle } from '../types'
 import { parseList, type RawRow } from '../import/parse'
-import { batchSlugs, demoWarning, interpret, loadRowLogo, logoSrc, toClient, type ImportRow } from '../import/batch'
+import { batchSlugs, interpret, loadRowLogo, logoSrc, toClient, type ImportRow } from '../import/batch'
+import { checkQrUrl, QR_HOST } from '../qr'
 import { fileToLogo } from '../map/logo'
 import { Button, Rise } from '../ui/kit'
 import { navigate, setLeaveGuard } from '../router'
@@ -14,7 +15,7 @@ type Phase = 'pick' | 'review' | 'creating'
 
 const COLUMNS: [string, string][] = [
   ['empresa', 'Nome da empresa, como vai impresso. Obrigatório.'],
-  ['demo', 'Endereço da demo, que vai no QR: app.isla.to/acme ou só acme. Vazio usa o nome da empresa.'],
+  ['qr', 'Link do presente copiado do /admin/gifts da Isla, completo (https://…). Vai no QR exatamente como está. Sem ele, o mapa é criado mas não exporta.'],
   ['meta', 'Meta final, no X do mapa: $10M ARR, R$ 5M em vendas. Obrigatório.'],
   ['idioma', 'pt ou en. Vazio: en.'],
   ['estilo', 'colorido, branco ou preto. Vazio: colorido.'],
@@ -93,19 +94,22 @@ export function Import() {
 
   const set = (i: number, patch: Partial<ImportRow>) => setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)))
   const remove = (i: number) => setRows((rs) => rs.filter((_, k) => k !== i))
-  const base = settings.baseUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')
   const slugs = useMemo(() => batchSlugs(rows), [rows, existing])
   const incomplete = rows.filter((r) => !r.company.trim() || !r.goal.trim()).length
+  // A wrong link is fixed now; a missing one can be pasted later (the map just won't export).
+  const badQr = rows.filter((r) => r.qr.trim() && !checkQrUrl(r.qr).ok).length
+  const noQr = rows.filter((r) => !r.qr.trim()).length
   // Already in the Studio, or twice in this list: worth a look before creating more.
   const notes = useMemo(() => {
     const names = new Set(existing.map((m) => slugify(m.company)))
-    const taken = new Set(existing.map((m) => m.slug))
+    const qrs = new Set(existing.map((m) => (m.qrUrl ?? '').trim()).filter(Boolean))
     return rows.map((r, i) => {
       const name = slugify(r.company)
       return [
         name && names.has(name) && 'Já existe mapa para esta empresa.',
-        taken.has(slugs[i]) && `Já existe mapa com o endereço /${slugs[i]}.`,
-        ((name && rows.findIndex((x) => slugify(x.company) === name) !== i) || slugs.indexOf(slugs[i]) !== i) && 'Repetida nesta lista.',
+        r.qr.trim() && qrs.has(r.qr.trim()) && 'Este QR já está em outro mapa.',
+        name && rows.findIndex((x) => slugify(x.company) === name) !== i && 'Repetida nesta lista.',
+        r.qr.trim() && rows.findIndex((x) => x.qr.trim() === r.qr.trim()) !== i && 'QR repetido nesta lista.',
       ].filter(Boolean).join(' ')
     })
   }, [rows, slugs, existing])
@@ -180,14 +184,15 @@ export function Import() {
             <table className="w-full min-w-[980px] text-left text-[14px]">
               <thead className="text-[12px] text-grey-2">
                 <tr className="border-b border-line">
-                  {['Empresa', 'Demo (QR)', 'Meta final', 'Idioma', 'Estilo', 'Logo', ''].map((h) => (
+                  {['Empresa', 'URL do QR', 'Meta final', 'Idioma', 'Estilo', 'Logo', ''].map((h) => (
                     <th key={h} className="px-3 py-3 font-medium first:pl-5">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => {
-                  const warning = [r.warning, notes[i], demoWarning(r.demo, base)].filter(Boolean).join(' ')
+                  const warning = [r.warning, notes[i]].filter(Boolean).join(' ')
+                  const q = checkQrUrl(r.qr)
                   const req = (v: string) => (v.trim() ? '' : '!border-[#ff8a7a]/70')
                   return (
                     <tr key={i} className="border-b border-line align-top last:border-0">
@@ -196,8 +201,16 @@ export function Import() {
                         {warning && <p className="mt-2 max-w-[260px] text-[12px] leading-snug text-[#e8b86a]">{warning}</p>}
                       </td>
                       <td className="px-3 py-3">
-                        <input className="field !py-2 !text-[14px]" value={r.demo} placeholder={slugs[i]} onChange={(e) => set(i, { demo: e.target.value })} />
-                        <p className="mt-2 truncate text-[12px] text-grey-2">{base}/{slugs[i]}</p>
+                        <input
+                          className={`field !py-2 !text-[14px] ${r.qr.trim() && !q.ok ? '!border-[#ff8a7a]/70' : ''}`}
+                          value={r.qr}
+                          placeholder={`https://${QR_HOST}/q/…`}
+                          spellCheck={false}
+                          onChange={(e) => set(i, { qr: e.target.value.trim() })}
+                        />
+                        <p className={`mt-2 max-w-[240px] text-[12px] leading-snug ${q.ok ? (q.warning ? 'text-[#e8b86a]' : 'text-grey-2') : r.qr.trim() ? 'text-[#ff8a7a]' : 'text-grey-2'}`}>
+                          {q.ok ? q.warning ?? 'OK' : r.qr.trim() ? q.error : 'Falta: não exporta até preencher.'}
+                        </p>
                       </td>
                       <td className="px-3 py-3">
                         <input className={`field !py-2 !text-[14px] ${req(r.goal)}`} value={r.goal} placeholder="Obrigatório" onChange={(e) => set(i, { goal: e.target.value })} />
@@ -230,12 +243,16 @@ export function Import() {
             </table>
           </div>
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className={`text-[13px] ${incomplete ? 'text-[#ff8a7a]' : 'text-grey-2'}`}>
+            <p className={`text-[13px] ${incomplete || badQr ? 'text-[#ff8a7a]' : 'text-grey-2'}`}>
               {incomplete
                 ? `Preencha empresa e meta em ${incomplete} ${incomplete === 1 ? 'linha' : 'linhas'} para criar.`
-                : 'Confira e ajuste o que precisar antes de criar. Use "Ver" para conferir o mapa.'}
+                : badQr
+                  ? `Corrija a URL do QR em ${badQr} ${badQr === 1 ? 'linha' : 'linhas'} (ou deixe vazia para colar depois).`
+                  : noQr
+                    ? `${noQr} sem URL do QR: os mapas são criados, mas só exportam depois que você colar o link.`
+                    : 'Confira e ajuste o que precisar antes de criar. Use "Ver" para conferir o mapa.'}
             </p>
-            <Button arrow disabled={!rows.length || !!incomplete || phase === 'creating'} onClick={create}>
+            <Button arrow disabled={!rows.length || !!incomplete || !!badQr || phase === 'creating'} onClick={create}>
               {phase === 'creating' ? `Criando ${progress}/${rows.length}` : `Criar ${rows.length} ${rows.length === 1 ? 'mapa' : 'mapas'} e cartas`}
             </Button>
           </div>

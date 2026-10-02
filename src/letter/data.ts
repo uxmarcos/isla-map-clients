@@ -1,5 +1,5 @@
 import type { Client } from '../types'
-import { toMapData, type Settings } from '../store'
+import { toMapData } from '../store'
 import { processLogo } from '../map/logo'
 import { letterText } from './copy'
 import { LETTER_SPECS, type LetterData } from './render'
@@ -16,7 +16,6 @@ export function letterLogo(c: Client): Promise<HTMLCanvasElement | null> {
 }
 
 /** Everything the letter needs, taken from the map: company, logo, goal (the X) and the QR. */
-export function toLetterData(c: Client, logo: HTMLCanvasElement | null, s?: Settings): LetterData {
-  const map = toMapData(c, s)
-  return { lang: c.lang, logo, text: letterText(c.lang, c.letter), company: c.company, goal: c.destination, url: map.url, qrUrl: map.qrUrl }
+export function toLetterData(c: Client, logo: HTMLCanvasElement | null): LetterData {
+  return { lang: c.lang, logo, text: letterText(c.lang, c.letter), company: c.company, goal: c.destination, qrUrl: toMapData(c).qrUrl }
 }

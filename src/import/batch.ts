@@ -1,6 +1,6 @@
 // Batch import: rows from a CSV/JSON -> map fields -> logos -> new maps.
 import type { Client, Lang, MapStyle } from '../types'
-import { DEFAULT_DANGERS, DEFAULT_NOTES, newClient, slugify, uniqueSlug, type Settings } from '../store'
+import { DEFAULT_DANGERS, DEFAULT_NOTES, newClient, uniqueSlug, type Settings } from '../store'
 import { fileToLogo } from '../map/logo'
 import type { RawRow } from './parse'
 
@@ -8,8 +8,8 @@ import type { RawRow } from './parse'
 export interface ImportRow {
   row: number
   company: string
-  /** Isla demo address: a URL like app.isla.to/acme or just the slug. */
-  demo: string
+  /** The gift's dynamic link from /admin/gifts, encoded in the QR exactly as given. */
+  qr: string
   goal: string
   lang: Lang
   style: MapStyle
@@ -23,9 +23,9 @@ export const interpret = (raw: RawRow[]): ImportRow[] => raw.map(localRow)
 
 // Local reading: known column names in PT and EN.
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '')
-const ALIASES: Record<'company' | 'demo' | 'goal' | 'lang' | 'style' | 'logo', string[]> = {
+const ALIASES: Record<'company' | 'qr' | 'goal' | 'lang' | 'style' | 'logo', string[]> = {
   company: ['empresa', 'company', 'nome', 'name', 'cliente', 'client', 'companyname', 'nomedaempresa', 'razaosocial'],
-  demo: ['demo', 'enderecodademo', 'demourl', 'urldademo', 'linkdademo', 'endereco', 'url', 'link', 'slug'],
+  qr: ['qr', 'urldoqr', 'qrurl', 'linkdoqr', 'linkdopresente', 'presente', 'gift', 'giftlink', 'gifturl', 'url', 'link', 'demo'],
   goal: ['meta', 'metafinal', 'goal', 'objetivo', 'destino', 'destination', 'target', 'tesouro'],
   lang: ['idioma', 'lang', 'language', 'lingua'],
   style: ['estilo', 'style', 'versao', 'cor', 'colorido', 'tipo', 'mapa'],
@@ -72,24 +72,9 @@ function localRow(r: RawRow, i: number): ImportRow {
     styleIn.value && !style && `Estilo "${styleIn.value}" não reconhecido; usei colorido.`,
   ].filter(Boolean)
   return {
-    row: i, company, demo: pick(r, 'demo').value, goal, lang: lang ?? 'en', style: style ?? 'color',
+    row: i, company, qr: pick(r, 'qr').value, goal, lang: lang ?? 'en', style: style ?? 'color',
     logo: pick(r, 'logo').value, warning: warnings.join(' '),
   }
-}
-
-/** The slug in the demo address: "https://app.isla.to/acme" -> "acme". Empty when there is none. */
-export function demoSlug(demo: string): string {
-  const path = demo.trim().replace(/^https?:\/\//i, '').replace(/[?#].*$/, '')
-  const parts = path.split('/').filter(Boolean)
-  const last = parts.length > 1 ? parts[parts.length - 1] : parts[0] && !parts[0].includes('.') ? parts[0] : ''
-  return slugify(last ?? '')
-}
-
-/** A warning when the demo address is on another domain than the one printed on the maps. */
-export function demoWarning(demo: string, baseUrl: string): string {
-  const host = demo.trim().replace(/^https?:\/\//i, '').split('/')[0]
-  const base = baseUrl.replace(/^https?:\/\//i, '').split('/')[0]
-  return host.includes('.') && host.toLowerCase() !== base.toLowerCase() ? `Demo em ${host}; o QR vai usar ${base}.` : ''
 }
 
 const isSvgCode = (v: string) => /^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(v)
@@ -122,16 +107,13 @@ export async function loadRowLogo(r: ImportRow): Promise<{ logo: string | null; 
   }
 }
 
-/** Slugs for a whole batch: the demo's own slug when given, otherwise one from the company, unique across the batch. */
+/** Slugs (file names, grouping) for a whole batch: from the company, unique across the batch. */
 export function batchSlugs(rows: ImportRow[]): string[] {
   const taken = new Set<string>()
   return rows.map((r) => {
-    let slug = demoSlug(r.demo)
-    if (!slug) {
-      const base = r.company || 'company'
-      slug = uniqueSlug(base)
-      for (let i = 2; taken.has(slug); i++) slug = uniqueSlug(`${base}-${i}`)
-    }
+    const base = r.company || 'company'
+    let slug = uniqueSlug(base)
+    for (let i = 2; taken.has(slug); i++) slug = uniqueSlug(`${base}-${i}`)
     taken.add(slug)
     return slug
   })
@@ -152,6 +134,7 @@ export function toClient(r: ImportRow, slug: string, logo: string | null, settin
     stageNotes: [...DEFAULT_NOTES[r.lang]],
     dangers: { ...DEFAULT_DANGERS[r.lang] },
     logo,
+    qrUrl: r.qr.trim(),
     notes: 'Importado em lote.',
   }
 }

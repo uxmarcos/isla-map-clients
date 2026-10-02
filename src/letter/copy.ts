@@ -17,9 +17,9 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
       { title: 'Call booked', text: 'Once a lead is warm, we reach out. The meeting lands on your calendar.' },
     ],
     closing:
-      'The map in this chest charts the route to {goal}. We would love to sail it with you. Scan the code to see Isla at work.',
+      'The map in this chest charts the route to {goal}. We would love to sail it with you. Scan the code to open your gift.',
     signoff: 'See you on board,\nThe Isla team',
-    qrCaption: 'Scan to see the demo',
+    qrCaption: 'Scan to open your gift',
   },
   pt: {
     eyebrow: 'Uma carta da Isla',
@@ -36,9 +36,9 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
       { title: 'Call agendada', text: 'Com o lead aquecido, fazemos o reach out. A reunião cai na sua agenda.' },
     ],
     closing:
-      'O mapa neste baú traça a rota até {goal}. Queremos navegar com vocês. Escaneie o código para ver a Isla em ação.',
+      'O mapa neste baú traça a rota até {goal}. Queremos navegar com vocês. Escaneie o código para abrir seu presente.',
     signoff: 'Até breve,\nTime Isla',
-    qrCaption: 'Escaneie para ver a demo',
+    qrCaption: 'Escaneie para abrir seu presente',
   },
 }
 

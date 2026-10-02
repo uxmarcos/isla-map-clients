@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  DEFAULT_DANGERS, DEFAULT_NOTES, deleteClient, getClient, mapFrom, newClient, saveClient, slugify, toMapData, uniqueSlug, useSettings,
+  DEFAULT_DANGERS, DEFAULT_NOTES, deleteClient, getClient, mapFrom, newClient, saveClient, uniqueSlug, useSettings,
 } from '../store'
 import {
   LANG_LABEL, LANG_ORDER, STATUS_LABEL, STATUS_ORDER, STYLE_LABEL, STYLE_ORDER, type Client, type Lang, type LogoMode, type MapStyle, type Status,
@@ -14,6 +14,7 @@ import { fileToLogo } from '../map/logo'
 import { Button, Label, StatusDot } from '../ui/kit'
 import { navigate, setLeaveGuard } from '../router'
 import { toast } from '../ui/toast'
+import { checkQrUrl, QR_HOST } from '../qr'
 
 const LOGO_MODES: { id: LogoMode; label: string }[] = [
   { id: 'original', label: 'Original' },
@@ -60,7 +61,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
   const [view, setView] = useState<'map' | 'letter'>('map')
   const fileRef = useRef<HTMLInputElement>(null)
   const set = (patch: Partial<Client>) => setC((prev) => ({ ...prev, ...patch }))
-  const data = toMapData(c, settings)
+  const qr = checkQrUrl(c.qrUrl)
   const dirty = (isNew && !saved && baseline === initial) || JSON.stringify(c) !== JSON.stringify(baseline)
   const changed = JSON.stringify(c) !== JSON.stringify(baseline)
   const missing = [!c.company.trim() && 'o nome da empresa', !c.destination.trim() && 'a meta final'].filter(Boolean) as string[]
@@ -135,6 +136,8 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
       const margin = kind === 'pdf-margin'
       if (view === 'letter') await (kind === 'png' ? downloadLetterPng(c) : downloadLetterPdf(c, { margin }))
       else await (kind === 'png' ? downloadPng(c) : downloadPdf(c, { margin }))
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), { tone: 'error' })
     } finally {
       setBusy(null)
     }
@@ -203,16 +206,18 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               <input className="field" value={c.company} placeholder="Acme" autoFocus={!c.company} onChange={(e) => setCompany(e.target.value)} />
             </div>
             <div>
-              <Label hint="vai no QR e no rodapé">Endereço da demo</Label>
-              <div className="field flex items-center gap-0 !p-0">
-                <span className="shrink-0 pl-3.5 text-grey-2">{settings.baseUrl}/</span>
-                <input
-                  className="min-w-0 flex-1 bg-transparent py-2.5 pr-3.5 outline-none"
-                  value={c.slug}
-                  placeholder="acme"
-                  onChange={(e) => set({ slug: slugify(e.target.value) })}
-                />
-              </div>
+              <Label hint="link do presente, do /admin/gifts">URL do QR</Label>
+              <input
+                className={`field ${qr.ok ? '' : c.qrUrl?.trim() ? '!border-[#ff8a7a]/70' : ''}`}
+                value={c.qrUrl ?? ''}
+                placeholder={`https://${QR_HOST}/q/…`}
+                inputMode="url"
+                spellCheck={false}
+                onChange={(e) => set({ qrUrl: e.target.value.trim() })}
+              />
+              <p className={`mt-2 text-[12px] ${qr.ok ? (qr.warning ? 'text-[#e8b86a]' : 'text-grey-2') : 'text-[#ff8a7a]'}`}>
+                {qr.ok ? qr.warning ?? 'O QR do mapa e da carta abre exatamente este link. Teste com a câmera antes de imprimir.' : qr.error}
+              </p>
             </div>
           </section>
 
@@ -393,17 +398,20 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               </div>
             )}
             <p className="mt-4 text-[12px] text-grey-2">
-              {STYLE_LABEL[c.style]} · {LANG_LABEL[c.lang]} · {view === 'map' ? `A4, ${PRINT_MM.w} × ${PRINT_MM.h} mm` : 'A4, 210 × 297 mm'} · QR → {data.qrUrl}
+              {STYLE_LABEL[c.style]} · {LANG_LABEL[c.lang]} · {view === 'map' ? `A4, ${PRINT_MM.w} × ${PRINT_MM.h} mm` : 'A4, 210 × 297 mm'} · {qr.ok ? `QR → ${c.qrUrl}` : 'QR pendente'}
             </p>
+            {!qr.ok && (
+              <p className="mt-2 text-[12px] text-[#ff8a7a]">Sem a URL do QR não dá para exportar: o mapa impresso sem ela não abre o presente.</p>
+            )}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap gap-2">
-                <Button variant="ghost" size="md" disabled={!!busy} onClick={() => run('png')}>
+                <Button variant="ghost" size="md" disabled={!!busy || !qr.ok} onClick={() => run('png')}>
                   {busy === 'png' ? 'Gerando…' : 'PNG'}
                 </Button>
-                <Button variant="ghost" size="md" disabled={!!busy} onClick={() => run('pdf')} title="Até a borda, para gráfica">
+                <Button variant="ghost" size="md" disabled={!!busy || !qr.ok} onClick={() => run('pdf')} title="Até a borda, para gráfica">
                   {busy === 'pdf' ? 'Gerando…' : 'PDF para gráfica'}
                 </Button>
-                <Button variant="ghost" size="md" disabled={!!busy} onClick={() => run('pdf-margin')} title={`Com ${SAFE_MARGIN_MM} mm de margem, para impressora comum (que não imprime até a borda)`}>
+                <Button variant="ghost" size="md" disabled={!!busy || !qr.ok} onClick={() => run('pdf-margin')} title={`Com ${SAFE_MARGIN_MM} mm de margem, para impressora comum (que não imprime até a borda)`}>
                   {busy === 'pdf-margin' ? 'Gerando…' : 'PDF com margem'}
                 </Button>
               </div>

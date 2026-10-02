@@ -33,7 +33,19 @@ export interface TemplateSpec {
    * Drawn over the artwork's plaque when the text needs a bigger one. art: stretch the artwork's own
    * plaque instead (textured parchment a flat fill can't match); shape and fill still style the small tags.
    */
-  plaqueFrame: { shape: 'octagon' | 'rounded'; corner: number; fill: string; stroke: string; art?: boolean }
+  plaqueFrame: {
+    shape: 'octagon' | 'rounded'
+    corner: number
+    fill: string
+    stroke: string
+    art?: boolean
+    /** The artwork has no plaques: draw a frame for every one. */
+    always?: boolean
+    /** Shape of the small tags (notes, dangers, "you are here") when it differs from the plaques. */
+    tagShape?: 'octagon' | 'rounded'
+    /** Drop shadow and darker edges, to sit on painted art like old parchment. */
+    aged?: boolean
+  }
   /** Italic line under each stage plaque: what Isla does there. Size is the readable print size. */
   note: { size: number; maxW: number; gap: number }
   /** Isla mark in a medallion at the centre of the compass: "you sail with Isla". */
@@ -41,16 +53,19 @@ export interface TemplateSpec {
   /** What Isla protects the client from: a label under the kraken, and a whirlpool drawn on the open sea with its label. */
   dangers: {
     kraken: { cx: number; cy: number }
-    /** depth: shadow colours for the throat and the mid wall of the funnel. */
-    whirlpool: { cx: number; cy: number; r: number; ink: string; foam: string; depth: [string, string] }
+    /** depth: shadow colours for the throat and the mid wall of the funnel. baked: the artwork already has one (only its label is drawn). */
+    whirlpool: { cx: number; cy: number; r: number; ink: string; foam: string; depth: [string, string]; baked?: boolean }
     size: number
     maxW: number
   }
   /** "You are here" tag on the first island; dot is where the route starts (null: no connector). */
   start: { cx: number; cy: number; maxW: number; size: number; dot: { x: number; y: number } | null }
-  /** Octagonal frame around the QR. The QR itself always prints dark on light so every phone reads it. */
-  qr: { cx: number; cy: number; frame: number; chamfer: number; fill: string; stroke: string; panel: string; module: string }
+  /** Octagonal frame around the QR (frameInArt: the artwork has it). The QR itself always prints dark on light so every phone reads it. */
+  qr: { cx: number; cy: number; frame: number; chamfer: number; fill: string; stroke: string; panel: string; module: string; frameInArt?: boolean }
   url: TextSlot
+  /** Drawn when the artwork has no ornament of its own: line ◇ line under the title, rules beside the URL. */
+  titleRule?: { cx: number; y: number; half: number }
+  urlRules?: { gap: number; length: number }
 }
 
 const white: TemplateSpec = {
@@ -101,39 +116,42 @@ const dark: TemplateSpec = {
   qr: { ...white.qr, fill: '#141414', stroke: '#F5F5F2', panel: '#F5F5F2', module: '#0A0A0A' },
 }
 
+// Soft watercolour map, already A4 (scripts/make-color-template.mjs). The artwork is clean: plaques,
+// notes, the QR frame and the ornaments are drawn here, in the places the reference design put them.
+// Its whirlpool is part of the art.
 const color: TemplateSpec = {
-  src: '/template-color.png',
-  w: 3072,
-  h: 2048,
-  ink: '#1C130B',
-  paper: '#E9CFA0',
-  fonts: { title: `400 {s}px ${SERIF}`, subtitle: `400 {s}px ${SERIF}`, plaque: `700 {s}px ${SERIF}`, url: `500 {s}px ${SANS}` },
-  title: { cx: 622, maxW: 720, line1Baseline: 296, line2Baseline: 372, size: 75, minSize: 48, tracking: 0.02 },
-  subtitle: { cx: 622, baseline: 490, maxW: 720, size: 56, minSize: 32, tracking: 0.01 },
-  header: { cx: 622, cy: 158, markH: 78, gap: 38, ruleH: 104, logoMaxW: 300, logoMaxH: 78 },
+  src: '/template-color.jpg',
+  w: 4344,
+  h: 3072,
+  ink: '#2A251E',
+  paper: '#E0D3B5',
+  fonts: { title: `400 {s}px ${SERIF}`, subtitle: `400 {s}px ${SERIF}`, plaque: `400 {s}px ${SERIF}`, url: `400 {s}px ${SANS}` },
+  title: { cx: 922, maxW: 1340, line1Baseline: 446, line2Baseline: 574, size: 128, minSize: 80, tracking: 0.03 },
+  subtitle: { cx: 914, baseline: 763, maxW: 1180, size: 76, minSize: 44, tracking: 0.17 },
+  titleRule: { cx: 914, y: 644, half: 648 },
+  header: { cx: 802, cy: 220, markH: 120, gap: 56, ruleH: 152, logoMaxW: 380, logoMaxH: 116 },
   plaques: [
-    { cx: 457, cy: 1534, w: 330, h: 125 },
-    { cx: 845, cy: 1296, w: 246, h: 97 },
-    { cx: 1290, cy: 1165, w: 246, h: 97 },
-    { cx: 1646, cy: 966, w: 241, h: 97 },
-    { cx: 2183, cy: 748, w: 243, h: 97 },
-    { cx: 2697, cy: 543, w: 330, h: 123 },
-  ].map((p) => ({ ...p, innerW: p.w - 44, innerH: p.h - 26 })),
-  plaqueText: { size: 30, minSize: 22, tracking: 0.04 },
-  plaqueFrame: { shape: 'rounded', corner: 10, fill: '#EAD2A5', stroke: '#3A2A18', art: true },
-  note: { size: 22, maxW: 380, gap: 8 },
-  compass: { cx: 2743, cy: 1514, r: 50 },
+    { cx: 671, cy: 2404, w: 456, h: 186 },
+    { cx: 1178, cy: 2037, w: 410, h: 150 },
+    { cx: 1818, cy: 1858, w: 385, h: 140 },
+    { cx: 2345, cy: 1540, w: 407, h: 139 },
+    { cx: 3079, cy: 1227, w: 407, h: 136 },
+    { cx: 3824, cy: 870, w: 452, h: 163 },
+  ].map((p) => ({ ...p, innerW: p.w - 70, innerH: p.h - 48 })),
+  plaqueText: { size: 56, minSize: 36, tracking: 0.03 },
+  plaqueFrame: { shape: 'octagon', corner: 26, fill: '#E5D2AD', stroke: '#3B3426', always: true, tagShape: 'rounded', aged: true },
+  note: { size: 37, maxW: 600, gap: 8 },
+  compass: { cx: 3928, cy: 2386, r: 58 },
   dangers: {
-    kraken: { cx: 2150, cy: 1745 },
-    // Where a mountain islet was erased from the artwork (scripts/clean-template.mjs).
-    whirlpool: { cx: 1052, cy: 650, r: 112, ink: '#173A42', foam: '#F4EEDF', depth: ['rgba(6,28,34,0.8)', 'rgba(10,50,60,0.2)'] },
-    size: 22,
-    maxW: 520,
+    kraken: { cx: 3110, cy: 2745 },
+    whirlpool: { cx: 1522, cy: 1088, r: 200, ink: '#42666B', foam: '#F4EEDF', depth: ['rgba(6,28,34,0.8)', 'rgba(10,50,60,0.2)'], baked: true },
+    size: 30,
+    maxW: 620,
   },
-  start: { cx: 300, cy: 1385, maxW: 340, size: 26, dot: null },
-  // Centred on the URL cartouche, just above its top ornament, as on the white and black maps.
-  qr: { cx: 1534, cy: 1518, frame: 270, chamfer: 26, fill: '#EBD3A6', stroke: '#2A1C10', panel: '#EBD3A6', module: '#1C130B' },
-  url: { cx: 1532, baseline: 1862, maxW: 780, size: 54, minSize: 30, tracking: 0.01 },
+  start: { cx: 390, cy: 2196, maxW: 460, size: 36, dot: null },
+  qr: { cx: 2176, cy: 2435, frame: 388, chamfer: 32, fill: '#EBDDBE', stroke: '#3B3426', panel: '#EBDDBE', module: '#221F1D' },
+  url: { cx: 2175, baseline: 2838, maxW: 1180, size: 60, minSize: 36, tracking: 0.22 },
+  urlRules: { gap: 66, length: 174 },
 }
 
 /** Stretches a 3:2 spec to A4 landscape: every vertical position (and plaque height) scales by the same factor. */

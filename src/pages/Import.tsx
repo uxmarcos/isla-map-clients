@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { saveClients, useSettings } from '../store'
-import { LANG_LABEL, LANG_ORDER, STYLE_LABEL, STYLE_ORDER, type Lang, type MapStyle } from '../types'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { saveClients, slugify, useClients, useSettings } from '../store'
+import { LANG_LABEL, LANG_ORDER, STYLE_LABEL, STYLE_ORDER, type Client, type Lang, type MapStyle } from '../types'
 import { parseList, type RawRow } from '../import/parse'
 import { batchSlugs, demoWarning, interpret, loadRowLogo, logoSrc, toClient, type ImportRow } from '../import/batch'
 import { fileToLogo } from '../map/logo'
 import { Button, Rise } from '../ui/kit'
-import { navigate } from '../router'
+import { navigate, setLeaveGuard } from '../router'
+import { toast } from '../ui/toast'
+import { Preview } from '../ui/MapCard'
 
 type Phase = 'pick' | 'review' | 'creating'
 
@@ -29,6 +32,16 @@ export function Import() {
   const [progress, setProgress] = useState(0)
   const listRef = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
+  const [preview, setPreview] = useState<Client | null>(null)
+  const [opening, setOpening] = useState<number | null>(null)
+  const existing = useClients()
+
+  // A reviewed list not yet created is work too.
+  useEffect(() => {
+    if (phase !== 'review' || !rows.length) return
+    setLeaveGuard(() => confirm('Sair sem criar os mapas desta lista?'))
+    return () => setLeaveGuard(null)
+  }, [phase, rows.length])
 
   async function onList(file: File | undefined) {
     if (!file) return
@@ -40,7 +53,7 @@ export function Import() {
       setRows(interpret(parsed))
       setPhase('review')
     } catch (e) {
-      alert(`Não consegui ler "${file.name}": ${e instanceof Error ? e.message : String(e)}`)
+      toast(`Não consegui ler "${file.name}": ${e instanceof Error ? e.message : String(e)}`, { tone: 'error' })
     }
   }
 
@@ -64,17 +77,38 @@ export function Import() {
     }
     await saveClients(made)
     const n = made.length
-    alert(
-      `${n} ${n === 1 ? 'mapa criado' : 'mapas criados'} como rascunho, cada um com a sua carta.` +
-        (problems.length ? `\n\nSem logo (adicione no editor):\n${problems.join('\n')}` : ''),
-    )
-    navigate('#/')
+    toast(`${n} ${n === 1 ? 'mapa criado' : 'mapas criados'} como rascunho, cada um com a sua carta.`, {
+      detail: problems.length ? ['Sem logo (adicione no editor):', ...problems] : undefined,
+    })
+    navigate('#/', { force: true })
+  }
+
+  /** The map as it will be created, logo included. */
+  async function open(i: number) {
+    setOpening(i)
+    const { logo } = await loadRowLogo(rows[i])
+    setPreview(toClient(rows[i], slugs[i], logo, settings))
+    setOpening(null)
   }
 
   const set = (i: number, patch: Partial<ImportRow>) => setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)))
   const remove = (i: number) => setRows((rs) => rs.filter((_, k) => k !== i))
   const base = settings.baseUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')
-  const slugs = batchSlugs(rows)
+  const slugs = useMemo(() => batchSlugs(rows), [rows, existing])
+  const incomplete = rows.filter((r) => !r.company.trim() || !r.goal.trim()).length
+  // Already in the Studio, or twice in this list: worth a look before creating more.
+  const notes = useMemo(() => {
+    const names = new Set(existing.map((m) => slugify(m.company)))
+    const taken = new Set(existing.map((m) => m.slug))
+    return rows.map((r, i) => {
+      const name = slugify(r.company)
+      return [
+        name && names.has(name) && 'Já existe mapa para esta empresa.',
+        taken.has(slugs[i]) && `Já existe mapa com o endereço /${slugs[i]}.`,
+        ((name && rows.findIndex((x) => slugify(x.company) === name) !== i) || slugs.indexOf(slugs[i]) !== i) && 'Repetida nesta lista.',
+      ].filter(Boolean).join(' ')
+    })
+  }, [rows, slugs, existing])
 
   return (
     <main className="container-page pb-32 pt-[calc(var(--nav-h)+72px)] md:pt-[calc(var(--nav-h)+96px)]">
@@ -153,11 +187,12 @@ export function Import() {
               </thead>
               <tbody>
                 {rows.map((r, i) => {
-                  const warning = [r.warning, demoWarning(r.demo, base)].filter(Boolean).join(' ')
+                  const warning = [r.warning, notes[i], demoWarning(r.demo, base)].filter(Boolean).join(' ')
+                  const req = (v: string) => (v.trim() ? '' : '!border-[#ff8a7a]/70')
                   return (
                     <tr key={i} className="border-b border-line align-top last:border-0">
                       <td className="px-3 py-3 pl-5">
-                        <input className="field !py-2 !text-[14px]" value={r.company} onChange={(e) => set(i, { company: e.target.value })} />
+                        <input className={`field !py-2 !text-[14px] ${req(r.company)}`} value={r.company} placeholder="Obrigatório" onChange={(e) => set(i, { company: e.target.value })} />
                         {warning && <p className="mt-2 max-w-[260px] text-[12px] leading-snug text-[#e8b86a]">{warning}</p>}
                       </td>
                       <td className="px-3 py-3">
@@ -165,7 +200,7 @@ export function Import() {
                         <p className="mt-2 truncate text-[12px] text-grey-2">{base}/{slugs[i]}</p>
                       </td>
                       <td className="px-3 py-3">
-                        <input className="field !py-2 !text-[14px]" value={r.goal} placeholder="$10M ARR" onChange={(e) => set(i, { goal: e.target.value })} />
+                        <input className={`field !py-2 !text-[14px] ${req(r.goal)}`} value={r.goal} placeholder="Obrigatório" onChange={(e) => set(i, { goal: e.target.value })} />
                       </td>
                       <td className="px-3 py-3">
                         <select className="field !py-2 !text-[14px]" value={r.lang} onChange={(e) => set(i, { lang: e.target.value as Lang })}>
@@ -180,7 +215,10 @@ export function Import() {
                       <td className="px-3 py-3">
                         <LogoCell value={r.logo} onFile={async (f) => set(i, { logo: await fileToLogo(f) })} onClear={() => set(i, { logo: '' })} />
                       </td>
-                      <td className="px-3 py-3 pr-5">
+                      <td className="whitespace-nowrap px-3 py-3 pr-5">
+                        <button type="button" disabled={opening !== null} onClick={() => open(i)} className="cursor-pointer px-2 py-2 text-[12px] text-grey-1 hover:text-porcelain disabled:opacity-40">
+                          {opening === i ? 'Abrindo…' : 'Ver'}
+                        </button>
                         <button type="button" onClick={() => remove(i)} className="cursor-pointer px-2 py-2 text-[12px] text-grey-2 hover:text-porcelain" title="Tirar da importação">
                           Remover
                         </button>
@@ -192,13 +230,18 @@ export function Import() {
             </table>
           </div>
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[13px] text-grey-2">Confira e ajuste o que precisar antes de criar.</p>
-            <Button arrow disabled={!rows.length || phase === 'creating'} onClick={create}>
+            <p className={`text-[13px] ${incomplete ? 'text-[#ff8a7a]' : 'text-grey-2'}`}>
+              {incomplete
+                ? `Preencha empresa e meta em ${incomplete} ${incomplete === 1 ? 'linha' : 'linhas'} para criar.`
+                : 'Confira e ajuste o que precisar antes de criar. Use "Ver" para conferir o mapa.'}
+            </p>
+            <Button arrow disabled={!rows.length || !!incomplete || phase === 'creating'} onClick={create}>
               {phase === 'creating' ? `Criando ${progress}/${rows.length}` : `Criar ${rows.length} ${rows.length === 1 ? 'mapa' : 'mapas'} e cartas`}
             </Button>
           </div>
         </section>
       )}
+      {preview && createPortal(<Preview client={preview} onClose={() => setPreview(null)} />, document.body)}
     </main>
   )
 }

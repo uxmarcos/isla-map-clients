@@ -30,7 +30,10 @@ export function Nav({ route }: { route: Route }) {
         {/* Hidden while creating a map: you are already making one. */}
         {(route.name !== 'new' || REQUIRE_LOGIN) && (
           <div className="flex h-12 items-center gap-2">
-            <a href="#/settings" className="px-3 text-[13px] text-grey-1 hover:text-porcelain sm:hidden">
+            <a href="#/clients" className="px-2 text-[13px] text-grey-1 hover:text-porcelain sm:hidden">
+              Clientes
+            </a>
+            <a href="#/settings" className="px-2 text-[13px] text-grey-1 hover:text-porcelain sm:hidden">
               Ajustes
             </a>
             {REQUIRE_LOGIN && (
@@ -42,15 +45,16 @@ export function Nav({ route }: { route: Route }) {
               Sair
             </button>
             )}
+            {/* On phones these two live in the page (under the intro on Mapas), not in the bar. */}
             {route.name !== 'new' && (
-              <>
-                <Button size="sm" variant="ghost" className="hidden bg-ink/70 backdrop-blur-md sm:inline-flex" onClick={() => navigate('#/import')}>
+              <div className="hidden items-center gap-2 sm:flex">
+                <Button size="sm" variant="ghost" className="bg-ink/70 backdrop-blur-md" onClick={() => navigate('#/import')}>
                   Criar mapas em lote
                 </Button>
                 <Button size="sm" arrow onClick={() => navigate('#/new')}>
                   Novo mapa
                 </Button>
-              </>
+              </div>
             )}
           </div>
         )}

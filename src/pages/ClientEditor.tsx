@@ -7,17 +7,18 @@ import {
   LANG_LABEL, LANG_ORDER, STATUS_LABEL, STATUS_ORDER, STYLE_LABEL, STYLE_ORDER, type Client, type Lang, type LogoMode, type MapStyle, type Status,
 } from '../types'
 import { MapCanvas } from '../map/MapCanvas'
-import { downloadLetterPdf, downloadLetterPng, downloadPdf, downloadPng, PRINT_MM } from '../map/export'
+import { downloadLetterPdf, downloadLetterPng, downloadPdf, downloadPng, PRINT_MM, SAFE_MARGIN_MM } from '../map/export'
 import { LetterCanvas } from '../letter/LetterCanvas'
 import { LetterFields } from '../letter/LetterFields'
 import { fileToLogo } from '../map/logo'
 import { Button, Label, StatusDot } from '../ui/kit'
-import { navigate } from '../router'
+import { navigate, setLeaveGuard } from '../router'
+import { toast } from '../ui/toast'
 
 const LOGO_MODES: { id: LogoMode; label: string }[] = [
+  { id: 'original', label: 'Original' },
   { id: 'ink', label: 'Tinta' },
   { id: 'gray', label: 'Cinza' },
-  { id: 'original', label: 'Original' },
   { id: 'hidden', label: 'Ocultar' },
 ]
 
@@ -54,15 +55,28 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
   // What is saved; edits since then make the form dirty.
   const [baseline, setBaseline] = useState(initial)
   const [saved, setSaved] = useState(false)
-  const [busy, setBusy] = useState<'pdf' | 'png' | null>(null)
+  const [busy, setBusy] = useState<'pdf' | 'pdf-margin' | 'png' | null>(null)
   // One preview at a time keeps the page short; both update live.
   const [view, setView] = useState<'map' | 'letter'>('map')
   const fileRef = useRef<HTMLInputElement>(null)
   const set = (patch: Partial<Client>) => setC((prev) => ({ ...prev, ...patch }))
   const data = toMapData(c, settings)
   const dirty = (isNew && !saved && baseline === initial) || JSON.stringify(c) !== JSON.stringify(baseline)
+  const changed = JSON.stringify(c) !== JSON.stringify(baseline)
+  const missing = [!c.company.trim() && 'o nome da empresa', !c.destination.trim() && 'a meta final'].filter(Boolean) as string[]
 
-  /** Saves, then asks for the status in the confirmation. */
+  // Leaving with unsaved edits asks first: menu links, the back-to-list link, closing the tab.
+  useEffect(() => {
+    if (!changed) return
+    setLeaveGuard(() => confirm(isNew && baseline === initial ? 'Descartar este mapa?' : 'Sair sem salvar as alterações?'))
+    const unload = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', unload)
+    return () => {
+      setLeaveGuard(null)
+      window.removeEventListener('beforeunload', unload)
+    }
+  }, [changed, isNew, baseline, initial])
+
   function commit(next: Client) {
     saveClient(next)
     const stored = getClient(next.id) ?? next // saveClient fills in the slug
@@ -70,9 +84,12 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
     setBaseline(stored)
   }
 
+  /** A new map asks for its status right away; an existing one just confirms. */
   function save() {
+    if (missing.length) return toast(`Preencha ${missing.join(' e ')} antes de salvar.`, { tone: 'error' })
     commit(c)
-    setSaved(true)
+    if (isNew) setSaved(true)
+    else toast('Mapa salvo.')
   }
 
   function keepEditing() {
@@ -81,11 +98,8 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
     if (isNew) navigate(`#/client/${c.id}`)
   }
 
-  function cancel() {
-    const changed = JSON.stringify(c) !== JSON.stringify(baseline)
-    if (changed && !confirm(isNew ? 'Descartar este mapa?' : 'Descartar as alterações?')) return
-    navigate('#/')
-  }
+  // The leave guard asks when there is something to lose.
+  const cancel = () => navigate('#/')
 
   function setCompany(company: string) {
     const patch: Partial<Client> = { company }
@@ -112,15 +126,15 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
 
   async function onLogo(file?: File) {
     if (!file) return
-    set({ logo: await fileToLogo(file), logoMode: c.logoMode === 'hidden' ? 'ink' : c.logoMode })
+    set({ logo: await fileToLogo(file), logoMode: c.logoMode === 'hidden' ? 'original' : c.logoMode })
   }
 
-  async function run(kind: 'pdf' | 'png') {
+  async function run(kind: 'pdf' | 'pdf-margin' | 'png') {
     setBusy(kind)
     try {
-      if (view === 'letter') await (kind === 'pdf' ? downloadLetterPdf(c) : downloadLetterPng(c))
-      else await (kind === 'pdf' ? downloadPdf(c) : downloadPng(c))
-      if (c.status === 'draft') set({ status: 'ready' })
+      const margin = kind === 'pdf-margin'
+      if (view === 'letter') await (kind === 'png' ? downloadLetterPng(c) : downloadLetterPdf(c, { margin }))
+      else await (kind === 'png' ? downloadPng(c) : downloadPdf(c, { margin }))
     } finally {
       setBusy(null)
     }
@@ -202,10 +216,12 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
             </div>
           </section>
 
-          {view === 'map' ? (
-            <>
+          {/* Shared by the map and the letter, so it shows on both tabs. */}
           <section className="hairline-t space-y-4 pt-7">
-            <p className="eyebrow">Logo</p>
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="eyebrow">Logo</p>
+              <span className="text-[12px] text-grey-2">Vale para o mapa e a carta</span>
+            </div>
             <div className="flex items-center gap-4">
               <button
                 type="button"
@@ -227,7 +243,16 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
                   </button>
                 )}
               </div>
-              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden onChange={(e) => onLogo(e.target.files?.[0])} />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                hidden
+                onChange={(e) => {
+                  onLogo(e.target.files?.[0])
+                  e.target.value = '' // so picking the same file again still counts
+                }}
+              />
             </div>
             {c.logo && (
               <div className="glass inline-flex gap-1 rounded-full p-1">
@@ -245,6 +270,8 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
             )}
           </section>
 
+          {view === 'map' ? (
+            <>
           <section className="hairline-t space-y-4 pt-7">
             <div className="flex items-baseline justify-between">
               <p className="eyebrow">O caminho</p>
@@ -327,10 +354,10 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               type="button"
               className="cursor-pointer text-[13px] text-grey-2 transition-colors duration-500 hover:text-porcelain"
               onClick={() => {
-                if (confirm(`Excluir o mapa de ${c.company || 'esta empresa'}?`)) {
-                  deleteClient(c.id)
-                  navigate('#/')
-                }
+                const stored = getClient(c.id)
+                deleteClient(c.id)
+                navigate('#/', { force: true })
+                if (stored) toast(`Mapa de ${stored.company || 'Sem nome'} excluído.`, { action: { label: 'Desfazer', run: () => saveClient(stored) } })
               }}
             >
               Excluir mapa
@@ -369,12 +396,15 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               {STYLE_LABEL[c.style]} · {LANG_LABEL[c.lang]} · {view === 'map' ? `A4, ${PRINT_MM.w} × ${PRINT_MM.h} mm` : 'A4, 210 × 297 mm'} · QR → {data.qrUrl}
             </p>
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="ghost" size="md" disabled={!!busy} onClick={() => run('png')}>
                   {busy === 'png' ? 'Gerando…' : 'PNG'}
                 </Button>
-                <Button variant="ghost" size="md" disabled={!!busy} onClick={() => run('pdf')}>
-                  {busy === 'pdf' ? 'Gerando…' : 'PDF para impressão'}
+                <Button variant="ghost" size="md" disabled={!!busy} onClick={() => run('pdf')} title="Até a borda, para gráfica">
+                  {busy === 'pdf' ? 'Gerando…' : 'PDF para gráfica'}
+                </Button>
+                <Button variant="ghost" size="md" disabled={!!busy} onClick={() => run('pdf-margin')} title={`Com ${SAFE_MARGIN_MM} mm de margem, para impressora comum (que não imprime até a borda)`}>
+                  {busy === 'pdf-margin' ? 'Gerando…' : 'PDF com margem'}
                 </Button>
               </div>
               <div className="flex gap-2">
@@ -434,7 +464,7 @@ function SavedDialog({ client: c, onStatus, onKeepEditing }: { client: Client; o
         </div>
         <div className="mt-8 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="quiet" onClick={onKeepEditing}>Continuar editando</Button>
-          <Button arrow onClick={() => navigate('#/')}>Ir para os mapas</Button>
+          <Button arrow onClick={() => navigate('#/', { force: true })}>Ir para os mapas</Button>
         </div>
       </div>
     </div>

@@ -10,7 +10,8 @@ const W = 2480
 const H = 3508
 
 const STYLES = {
-  color: { base: [221, 189, 140], noise: 10, fibre: '#7a5320', fibreOpacity: 0.07, rose: '#8a5a22', roseOpacity: 0.17, vignette: 0.32 },
+  // Same light parchment as the colour map, with its thin border and four-point corner stars.
+  color: { base: [233, 219, 190], noise: 9, fibre: '#7a6040', fibreOpacity: 0.06, rose: '#8a6a3a', roseOpacity: 0.12, vignette: 0.16, vignetteColor: '#6b4a1e', frame: '#3a3226' },
   white: { base: [230, 229, 224], noise: 6, fibre: '#55544f', fibreOpacity: 0.04, rose: '#5a5a55', roseOpacity: 0.07, vignette: 0.06 },
   dark: { base: [20, 20, 20], noise: 5, fibre: '#f5f5f2', fibreOpacity: 0.035, rose: '#f5f5f2', roseOpacity: 0.05, vignette: 0 },
 }
@@ -53,6 +54,21 @@ function compassRose(cx, cy, r, color, opacity) {
   return `<g opacity="${opacity}">${parts.join('')}</g>`
 }
 
+/** The map's border: a thin line inset from the edge, a hollow four-point star at each corner. */
+function frame(color) {
+  const inset = 70, r = 30, gap = 22
+  const star = (cx, cy) => {
+    const k = r * 0.16
+    return `<path d="M${cx} ${cy - r} Q${cx + k} ${cy - k} ${cx + r} ${cy} Q${cx + k} ${cy + k} ${cx} ${cy + r} Q${cx - k} ${cy + k} ${cx - r} ${cy} Q${cx - k} ${cy - k} ${cx} ${cy - r}Z" fill="none" stroke="${color}" stroke-width="4" stroke-linejoin="round"/>`
+  }
+  const a = inset, b = inset + r + gap
+  const lines = [
+    [b, a, W - b, a], [b, H - a, W - b, H - a], // top, bottom
+    [a, b, a, H - b], [W - a, b, W - a, H - b], // left, right
+  ].map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="3"/>`)
+  return `<g opacity="0.85">${lines.join('')}${star(a, a)}${star(W - a, a)}${star(a, H - a)}${star(W - a, H - a)}</g>`
+}
+
 function fibres(color, opacity) {
   const paths = []
   for (let i = 0; i < 2600; i++) {
@@ -81,9 +97,9 @@ for (const [name, s] of Object.entries(STYLES)) {
     img[i * 3 + 2] = Math.max(0, Math.min(255, s.base[2] + d * 1.15))
   }
   const vignette = s.vignette
-    ? `<defs><radialGradient id="v" cx="50%" cy="50%" r="75%"><stop offset="55%" stop-color="#5a3510" stop-opacity="0"/><stop offset="100%" stop-color="#5a3510" stop-opacity="${s.vignette}"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#v)"/>`
+    ? `<defs><radialGradient id="v" cx="50%" cy="50%" r="75%"><stop offset="55%" stop-color="${s.vignetteColor ?? '#5a3510'}" stop-opacity="0"/><stop offset="100%" stop-color="${s.vignetteColor ?? '#5a3510'}" stop-opacity="${s.vignette}"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#v)"/>`
     : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${fibres(s.fibre, s.fibreOpacity)}${compassRose(260, 230, 760, s.rose, s.roseOpacity)}${compassRose(2380, 3330, 1150, s.rose, s.roseOpacity)}${vignette}</svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${fibres(s.fibre, s.fibreOpacity)}${compassRose(260, 230, 760, s.rose, s.roseOpacity)}${compassRose(2380, 3330, 1150, s.rose, s.roseOpacity)}${vignette}${s.frame ? frame(s.frame) : ''}</svg>`
   await sharp(img, { raw: { width: W, height: H, channels: 3 } })
     .composite([{ input: Buffer.from(svg) }])
     .jpeg({ quality: 88, mozjpeg: true })

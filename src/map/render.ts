@@ -54,6 +54,7 @@ export function drawMap(
   drawTitle(ctx, t, copy, upper(data.company) || copy.fallback)
   // The subtitle names the treasure: the same text as the last plaque, by the X.
   drawSubtitle(ctx, t, `${copy.path} ${upper(data.destination)}`)
+  if (t.titleRule) drawTitleRule(ctx, t, t.titleRule)
 
   const labels = [...data.stages.slice(0, 5), data.destination]
   t.plaques.forEach((p, i) => {
@@ -62,7 +63,7 @@ export function drawMap(
     if (i < 5 && note) drawNote(ctx, t, note, p.cx, bottom + t.note.gap)
   })
 
-  drawWhirlpool(ctx, t)
+  if (!t.dangers.whirlpool.baked) drawWhirlpool(ctx, t)
   const w = t.dangers.whirlpool
   // Label just under the (flattened) whirlpool.
   drawDanger(ctx, t, data.dangers.whirlpool, { cx: w.cx, cy: w.cy + w.r * WHIRL_SQUASH * 1.38 + t.dangers.size * 1.5 })
@@ -72,9 +73,47 @@ export function drawMap(
 
   drawQr(ctx, t, data.qrUrl)
   ctx.fillStyle = t.ink
-  drawFitted(ctx, `${copy.visit} ${data.url.toUpperCase()}`, t.fonts.url, t.url)
+  const urlW = drawFitted(ctx, `${copy.visit} ${data.url.toUpperCase()}`, t.fonts.url, t.url)
+  if (t.urlRules) drawUrlRules(ctx, t, urlW)
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
+}
+
+const u = (t: TemplateSpec) => t.w / 4344
+
+/** Line, hollow diamond, line: the ornament between the title and the subtitle. */
+function drawTitleRule(ctx: Ctx, t: TemplateSpec, r: NonNullable<TemplateSpec['titleRule']>) {
+  const k = u(t), d = 13 * k, gap = 30 * k
+  ctx.strokeStyle = t.ink
+  ctx.lineWidth = 3.5 * k
+  ctx.beginPath()
+  ctx.moveTo(r.cx - r.half, r.y)
+  ctx.lineTo(r.cx - gap, r.y)
+  ctx.moveTo(r.cx + gap, r.y)
+  ctx.lineTo(r.cx + r.half, r.y)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(r.cx, r.y - d)
+  ctx.lineTo(r.cx + d, r.y)
+  ctx.lineTo(r.cx, r.y + d)
+  ctx.lineTo(r.cx - d, r.y)
+  ctx.closePath()
+  ctx.lineWidth = 3 * k
+  ctx.stroke()
+}
+
+/** A short rule on each side of the URL, following its width. */
+function drawUrlRules(ctx: Ctx, t: TemplateSpec, textW: number) {
+  const { gap, length } = t.urlRules!
+  const y = t.url.baseline - (CAP * t.url.size) / 2
+  ctx.strokeStyle = t.ink
+  ctx.lineWidth = 3.5 * u(t)
+  ctx.beginPath()
+  ctx.moveTo(t.url.cx - textW / 2 - gap - length, y)
+  ctx.lineTo(t.url.cx - textW / 2 - gap, y)
+  ctx.moveTo(t.url.cx + textW / 2 + gap, y)
+  ctx.lineTo(t.url.cx + textW / 2 + gap + length, y)
+  ctx.stroke()
 }
 
 /**
@@ -159,11 +198,13 @@ function fit(ctx: Ctx, text: string, font: string, size: number, min: number, ma
   return min
 }
 
+/** Returns the drawn text's width. */
 function drawFitted(ctx: Ctx, text: string, font: string, o: TextSlot) {
   const s = fit(ctx, text, font, o.size, o.minSize, o.maxW, o.tracking)
   setFont(ctx, font.replace('{s}', String(s)), s * o.tracking)
   // Shift by half the trailing spacing so the text is optically centred.
   ctx.fillText(text, o.cx + (s * o.tracking) / 2, o.baseline, o.maxW + s * o.tracking)
+  return Math.min(o.maxW, width(ctx, text, s * o.tracking))
 }
 
 /** One line, or two at the minimum size when the goal is long. */
@@ -191,6 +232,8 @@ const blockHeight = (n: number, s: number) => n * CAP * s + (n - 1) * LINE_GAP *
  */
 /** Returns the plaque's bottom edge (it may have grown). */
 function drawPlaque(ctx: Ctx, t: TemplateSpec, template: HTMLImageElement, text: string, p: Plaque): number {
+  // Artwork without plaques of its own: every plaque gets a frame, even an empty one.
+  if (t.plaqueFrame.always) drawPlaqueFrame(ctx, t, p.cx, p.cy, p.w, p.h)
   if (!text) return p.cy + p.h / 2
   const font = t.fonts.plaque
   const { size, minSize, tracking } = t.plaqueText
@@ -268,7 +311,7 @@ function drawTag(ctx: Ctx, t: TemplateSpec, cx: number, top: number, blocks: Tag
   const w = Math.max(...laid.map((b) => b.w)) + padX * 2 + lead
   const h = laid.reduce((a, b) => a + b.h, 0) + between * (laid.length - 1) + padTop + padBottom
   const cy = top + h / 2
-  drawPlaqueFrame(ctx, t, cx, cy, w, h)
+  drawPlaqueFrame(ctx, t, cx, cy, w, h, t.plaqueFrame.tagShape)
   ctx.fillStyle = t.ink
   let y = top + padTop
   for (const b of laid) {
@@ -499,8 +542,9 @@ function stretchArtPlaque(ctx: Ctx, t: TemplateSpec, template: HTMLImageElement,
     for (const [y0, yh, y1, yh1] of rows) ctx.drawImage(template, x0, y0, xw, yh, x1, y1, xw1, yh1)
 }
 
-function drawPlaqueFrame(ctx: Ctx, t: TemplateSpec, cx: number, cy: number, w: number, h: number) {
-  const { shape, corner, fill, stroke } = t.plaqueFrame
+function drawPlaqueFrame(ctx: Ctx, t: TemplateSpec, cx: number, cy: number, w: number, h: number, shapeOverride?: TemplateSpec['plaqueFrame']['shape']) {
+  const { corner, fill, stroke } = t.plaqueFrame
+  const shape = shapeOverride ?? t.plaqueFrame.shape
   const path = (inset: number) => {
     const x0 = cx - w / 2 + inset, y0 = cy - h / 2 + inset, x1 = cx + w / 2 - inset, y1 = cy + h / 2 - inset
     ctx.beginPath()
@@ -519,7 +563,21 @@ function drawPlaqueFrame(ctx: Ctx, t: TemplateSpec, cx: number, cy: number, w: n
   const u = t.w / 4344
   ctx.fillStyle = fill
   path(0)
-  ctx.fill()
+  if (t.plaqueFrame.aged) {
+    // Old parchment: a soft shadow on the art, and edges that darken like the paper around them.
+    ctx.save()
+    ctx.shadowColor = 'rgba(40,28,12,0.38)'
+    ctx.shadowBlur = 16 * u
+    ctx.shadowOffsetY = 5 * u
+    ctx.fill()
+    ctx.restore()
+    const g = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.2, cx, cy, Math.hypot(w, h) / 2)
+    g.addColorStop(0, 'rgba(255,248,230,0.28)')
+    g.addColorStop(0.6, 'rgba(120,85,40,0)')
+    g.addColorStop(1, 'rgba(110,72,30,0.32)')
+    ctx.fillStyle = g
+    ctx.fill()
+  } else ctx.fill()
   ctx.strokeStyle = stroke
   ctx.lineWidth = 7 * u
   ctx.stroke()
@@ -569,15 +627,17 @@ function drawQr(ctx: Ctx, t: TemplateSpec, url: string) {
     ctx.lineTo(x0, y0 + c)
     ctx.closePath()
   }
-  ctx.fillStyle = fill
-  octagon(0)
-  ctx.fill()
-  ctx.strokeStyle = stroke
-  ctx.lineWidth = 6 * u
-  ctx.stroke()
-  ctx.lineWidth = 2 * u
-  octagon(14 * u)
-  ctx.stroke()
+  if (!t.qr.frameInArt) {
+    ctx.fillStyle = fill
+    octagon(0)
+    ctx.fill()
+    ctx.strokeStyle = stroke
+    ctx.lineWidth = 6 * u
+    ctx.stroke()
+    ctx.lineWidth = 2 * u
+    octagon(14 * u)
+    ctx.stroke()
+  }
 
   const qr = QRCode.create(url || 'https://isla.to', { errorCorrectionLevel: 'M' })
   const n = qr.modules.size

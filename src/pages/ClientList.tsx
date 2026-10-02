@@ -5,6 +5,7 @@ import { MapCard } from '../ui/MapCard'
 import { downloadZip } from '../map/export'
 import { Button, Rise } from '../ui/kit'
 import { navigate } from '../router'
+import { toast } from '../ui/toast'
 
 type Filter = Status | 'all'
 
@@ -19,9 +20,9 @@ export function ClientList() {
     setImporting(true)
     try {
       const n = await importLocalMaps()
-      alert(`${n} ${n === 1 ? 'mapa importado' : 'mapas importados'} para o banco da equipe.`)
+      toast(`${n} ${n === 1 ? 'mapa importado' : 'mapas importados'} para o banco da equipe.`)
     } catch (e) {
-      alert(`Não foi possível importar: ${e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)}`)
+      toast(`Não foi possível importar: ${e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)}`, { tone: 'error' })
     } finally {
       setImporting(false)
     }
@@ -52,6 +53,14 @@ export function ClientList() {
         <p className="text-lede fade-up mt-6 max-w-xl" style={{ animationDelay: '200ms' }}>
           Cadastre a empresa, o logo e a meta. O mapa sai pronto para imprimir, com o QR que leva à demo.
         </p>
+        <div className="fade-up mt-8 flex flex-wrap gap-2 sm:hidden" style={{ animationDelay: '250ms' }}>
+          <Button arrow onClick={() => navigate('#/new')}>
+            Novo mapa
+          </Button>
+          <Button variant="ghost" onClick={() => navigate('#/import')}>
+            Criar mapas em lote
+          </Button>
+        </div>
       </section>
 
       {pending > 0 && (

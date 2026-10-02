@@ -1,7 +1,7 @@
 // Builds the map templates in public/ from the original artwork in scripts/:
 // - template-white.png: baked-in text (title, subtitle, URL) removed so the app can draw it.
 // - template-dark.png: negative of the white one, on the landing's dark grey with a light grid.
-// - template-color.png: colored parchment version, text removed.
+// (template-color.jpg has its own script: scripts/make-color-template.mjs.)
 // Background elements (islands off the route, ships, the whale, loose rocks) are faded a
 // little so the eye goes to the route, the dangers, the compass and the QR.
 // Text removal: pixels that read as ink (or the embossed glow around it) inside each region
@@ -47,45 +47,7 @@ const JOBS = [
       { x: 330, y: 700, w: 1135, h: 92 }, // "THE PATH TO $10M ARR"
       { x: 1700, y: 2612, w: 975, h: 86 }, // "VISIT APP.ISLA.TO/COMPANY"
     ],
-  },
-  {
-    src: 'scripts/template-color-original.png', // 3072 x 2048
-    out: 'public/template-color.png',
-    dark: 110,
-    light: 256,
-    dilate: 4,
-    radius: 22,
-    erase: [
-      { at: [1045, 660, 175, 100], from: [[190, 140]], ink: 0, match: true }, // mountain islet where the whirlpool goes
-      // Compass star and its two rules above the title: the Isla | client logos go there. Rules first,
-      // so the star's patch copies clean parchment.
-      { at: [474, 173, 95, 12], from: [[0, 32]], ink: 0, match: true },
-      { at: [788, 173, 95, 12], from: [[0, 32]], ink: 0, match: true },
-      { at: [628, 158, 90, 60], from: [[-200, 0]], ink: 0, match: true },
-    ],
-    fade: { amount: 0.38, toward: 'surroundings' },
-    extras: [
-      [1682, 246, 338, 177], // top mountain island
-      [2150, 361, 108, 54], // islets, top right
-      [1344, 499, 200, 92], // island, upper middle
-      [779, 779, 111, 89], // ship, left
-      [1006, 929, 61, 61], // small ship
-      [1777, 556, 54, 58], // small ship, centre
-      [433, 945, 215, 138], // islands, left
-      [2634, 937, 200, 100], // island with tower, right
-      [2918, 829, 92, 38], // islets, far right
-      [1981, 1267, 246, 123], // islands, bottom centre
-      [2491, 1309, 100, 108], // ship, right
-      [1109, 1593, 104, 80], // whale
-      [2573, 1797, 177, 85], // island, bottom right
-      [1667, 1121, 61, 46], // rocks
-    ],
-    regions: [
-      { x: 240, y: 222, w: 755, h: 160 }, // title
-      { x: 240, y: 425, w: 752, h: 82 }, // subtitle
-      { x: 1170, y: 1808, w: 702, h: 68 }, // URL
-    ],
-  },
+  }
 ]
 
 // Negative of the white map: paper -> dark grey, ink -> porcelain.
@@ -259,4 +221,3 @@ if (process.argv[2] === 'dark') {
 const white = await clean(JOBS[0])
 await darkVersion(white)
 console.log('wrote public/template-dark.png')
-await clean(JOBS[1])

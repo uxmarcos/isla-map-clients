@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Client, Dangers, Lang, MapData } from './types'
 import { currentEmail, supabase } from './supabase'
+import { toast } from './ui/toast'
 
 // Maps and settings live in Supabase (schema maps, tables maps and settings),
 // shared by the whole team. These keys are the old browser-only storage, kept for importing.
@@ -101,14 +102,14 @@ function persistLocal() {
     localStorage.setItem(KEY, JSON.stringify(clients))
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch (e) {
-    alert('Não foi possível salvar: o armazenamento do navegador está cheio. Tente um logo menor.')
+    toast('Não foi possível salvar: o armazenamento do navegador está cheio. Tente um logo menor.', { tone: 'error' })
     console.error(e)
   }
 }
 
 function fail(e: unknown) {
   console.error(e)
-  alert(`Não foi possível salvar no banco: ${e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)}`)
+  toast(`Não foi possível salvar no banco: ${e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)}`, { tone: 'error' })
 }
 
 /** Loads everything for the signed-in user and listens for changes from teammates. */
@@ -214,7 +215,7 @@ export function newClient(): Client {
     dangers: { ...DEFAULT_DANGERS.en },
     destination: '$10M ARR',
     logo: null,
-    logoMode: 'ink',
+    logoMode: 'original',
     status: 'draft',
     notes: '',
     createdAt: now,
@@ -225,7 +226,7 @@ export function newClient(): Client {
 /** A new map for the same client: everything personalised is kept (name, logo, goal, demo, texts); status starts over. */
 export function mapFrom(c: Client): Client {
   const fresh = newClient()
-  return { ...structuredClone(c), id: fresh.id, status: 'draft', notes: '', createdAt: fresh.createdAt, updatedAt: fresh.updatedAt }
+  return { ...structuredClone(c), id: fresh.id, clientId: c.clientId ?? c.id, status: 'draft', notes: '', createdAt: fresh.createdAt, updatedAt: fresh.updatedAt }
 }
 
 const row = (c: Client) => ({ id: c.id, data: c, updated_at: new Date().toISOString(), updated_by: currentEmail() })

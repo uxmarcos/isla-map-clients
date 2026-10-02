@@ -11,12 +11,39 @@ interface Customer {
   maps: Client[]
 }
 
+/**
+ * Maps belong to the same client when one was started from the other (clientId), or when they
+ * share the demo address or the company name. Renaming a map started from another keeps it linked.
+ */
 function group(maps: Client[]): Customer[] {
-  const by = new Map<string, Client[]>()
-  for (const m of maps) {
-    const key = slugify(m.company) || m.id
-    by.set(key, [...(by.get(key) ?? []), m])
+  const parent = new Map<string, string>()
+  const find = (x: string): string => {
+    const p = parent.get(x) ?? x
+    if (p === x) return x
+    const root = find(p)
+    parent.set(x, root)
+    return root
   }
+  const union = (a: string, b: string) => {
+    const ra = find(a), rb = find(b)
+    if (ra !== rb) parent.set(ra, rb)
+  }
+  const ids = new Set(maps.map((m) => m.id))
+  const firstBy = new Map<string, string>()
+  const link = (key: string, id: string) => {
+    if (!key) return
+    const other = firstBy.get(key)
+    if (other) union(id, other)
+    else firstBy.set(key, id)
+  }
+  for (const m of maps) {
+    if (m.clientId && ids.has(m.clientId)) union(m.id, m.clientId)
+    if (m.clientId) link(`c:${m.clientId}`, m.id)
+    link(`s:${m.slug}`, m.id)
+    link(`n:${slugify(m.company)}`, m.id)
+  }
+  const by = new Map<string, Client[]>()
+  for (const m of maps) by.set(find(m.id), [...(by.get(find(m.id)) ?? []), m])
   return [...by.entries()]
     .map(([key, list]) => {
       const sorted = [...list].sort((a, b) => b.updatedAt - a.updatedAt)
@@ -33,7 +60,9 @@ export function Clients() {
   const [q, setQ] = useState('')
   const customers = useMemo(() => group(maps), [maps])
   const needle = slugify(q)
-  const shown = needle ? customers.filter((c) => c.key.includes(needle) || slugify(c.latest.destination).includes(needle)) : customers
+  const shown = needle
+    ? customers.filter((c) => c.maps.some((m) => slugify(m.company).includes(needle) || slugify(m.destination).includes(needle)))
+    : customers
 
   return (
     <main className="container-page pb-32 pt-[calc(var(--nav-h)+72px)] md:pt-[calc(var(--nav-h)+96px)]">

@@ -36,6 +36,8 @@ export interface Dangers {
 
 export interface Client {
   id: string
+  /** Links maps of the same client: set on maps started from another one ("Novo mapa" in Clientes). */
+  clientId?: string
   company: string
   slug: string
   style: MapStyle

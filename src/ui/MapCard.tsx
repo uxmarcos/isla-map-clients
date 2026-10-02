@@ -7,6 +7,7 @@ import { MapCanvas } from '../map/MapCanvas'
 import { LetterCanvas } from '../letter/LetterCanvas'
 import { StatusDot, StatusPill } from './kit'
 import { navigate } from '../router'
+import { toast } from './toast'
 
 /** Closes a popover on a click outside it or on Escape. */
 function useDismiss(open: boolean, close: () => void) {
@@ -49,7 +50,10 @@ export function MapCard({ client: c }: { client: Client }) {
       <ActionsMenu
         onView={() => setPreview(true)}
         onEdit={() => navigate(edit)}
-        onDelete={() => confirm(`Excluir o mapa de ${c.company || 'Sem nome'}? Isso não pode ser desfeito.`) && deleteClient(c.id)}
+        onDelete={() => {
+          deleteClient(c.id)
+          toast(`Mapa de ${c.company || 'Sem nome'} excluído.`, { action: { label: 'Desfazer', run: () => saveClient(c) } })
+        }}
       />
       {/* On body: the card's entrance animation would trap a fixed overlay inside it. */}
       {preview && createPortal(<Preview client={c} onClose={() => setPreview(false)} />, document.body)}
@@ -137,8 +141,8 @@ function ActionsMenu({ onView, onEdit, onDelete }: { onView: () => void; onEdit:
   )
 }
 
-/** The map and its letter, large, without leaving the list. */
-function Preview({ client: c, onClose }: { client: Client; onClose: () => void }) {
+/** The map and its letter, large, without leaving the page. */
+export function Preview({ client: c, onClose }: { client: Client; onClose: () => void }) {
   const [view, setView] = useState<'map' | 'letter'>('map')
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()

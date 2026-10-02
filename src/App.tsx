@@ -7,6 +7,7 @@ import { Settings } from './pages/Settings'
 import { Import } from './pages/Import'
 import { Clients } from './pages/Clients'
 import { Denied, Login, SyncError } from './pages/Login'
+import { Toaster } from './ui/toast'
 import { REQUIRE_LOGIN, useAuthReady, useSession } from './supabase'
 import { connect, disconnect, useSync } from './store'
 
@@ -57,6 +58,7 @@ export default function App() {
   return (
     <>
       {page}
+      <Toaster />
       <div className="grain" aria-hidden />
     </>
   )

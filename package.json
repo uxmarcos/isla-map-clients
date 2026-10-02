@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "clean-template": "node scripts/clean-template.mjs"
+    "clean-template": "node scripts/clean-template.mjs",
+    "color-template": "node scripts/make-color-template.mjs",
+    "letter-paper": "node scripts/make-letter-paper.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

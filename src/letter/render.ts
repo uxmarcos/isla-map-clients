@@ -37,9 +37,10 @@ export const LETTER_SPECS: Record<MapStyle, LetterSpec> = {
     src: '/letter-dark.jpg', paper: '#141414', ink: '#F5F5F2', soft: '#D9D9D4',
     accent: 'rgba(245,245,242,0.5)', accent2: 'rgba(245,245,242,0.8)', qrPanel: '#F5F5F2', qrModule: '#0A0A0A',
   },
+  // Matches the colour map: light parchment, its dark ink, the sea's teal and the roofs' terracotta.
   color: {
-    src: '/letter-color.jpg', paper: '#DDBD8C', ink: '#2E1F10', soft: '#3F2C18',
-    accent: 'rgba(38,98,110,0.75)', accent2: 'rgba(150,72,38,0.8)', qrPanel: '#EBD3A6', qrModule: '#1C130B',
+    src: '/letter-color.jpg', paper: '#E7D8BA', ink: '#2A251E', soft: '#463E33',
+    accent: 'rgba(72,128,138,0.7)', accent2: 'rgba(168,86,56,0.72)', qrPanel: '#EFE3C8', qrModule: '#221F1D',
   },
 }
 

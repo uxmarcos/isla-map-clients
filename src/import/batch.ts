@@ -68,8 +68,6 @@ function localRow(r: RawRow, i: number): ImportRow {
   const lang = readLang(langIn)
   const style = readStyle(styleIn.value, styleIn.key)
   const warnings = [
-    !company && 'Sem nome da empresa.',
-    !goal && 'Sem meta final.',
     langIn && !lang && `Idioma "${langIn}" não reconhecido; usei inglês.`,
     styleIn.value && !style && `Estilo "${styleIn.value}" não reconhecido; usei colorido.`,
   ].filter(Boolean)
@@ -141,7 +139,7 @@ export function batchSlugs(rows: ImportRow[]): string[] {
 
 /** A new map from an import row, with the defaults of its language. */
 export function toClient(r: ImportRow, slug: string, logo: string | null, settings: Settings): Client {
-  const goal = r.goal.trim() || '$10M ARR'
+  const goal = r.goal.trim()
   return {
     ...newClient(),
     company: r.company.trim(),

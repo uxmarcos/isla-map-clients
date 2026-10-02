@@ -1,0 +1,5 @@
+[
+  { "empresa": "Acme", "demo": "app.isla.to/acme", "meta": "$10M ARR", "idioma": "en", "estilo": "colorido", "logo": "https://acme.com/logo.png" },
+  { "empresa": "Padaria Pão Dourado", "demo": "app.isla.to/pao-dourado", "meta": "R$ 5M em vendas", "idioma": "pt", "estilo": "colorido", "logo": "" },
+  { "empresa": "Northwind", "demo": "northwind", "meta": "100 new clients", "idioma": "en", "estilo": "branco", "logo": "" }
+]

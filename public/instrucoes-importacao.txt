@@ -1,0 +1,37 @@
+LISTA PARA O ISLA MAP STUDIO: COMO MONTAR
+
+O Map Studio cria um mapa do tesouro e uma carta para cada linha da lista.
+Envie um arquivo CSV (separado por ponto e vírgula ou vírgula) ou JSON (uma lista de objetos).
+A primeira linha do CSV é o cabeçalho, com exatamente estas colunas:
+
+empresa;demo;meta;idioma;estilo;logo
+
+COLUNAS
+- empresa (obrigatória): nome da empresa, como deve sair impresso. Ex.: Acme
+- demo: endereço da demo da Isla para essa empresa, que vai no QR code.
+  Pode ser o endereço completo (app.isla.to/acme) ou só o final (acme).
+  Não é o site da empresa. Vazio: usa o nome da empresa (app.isla.to/acme).
+- meta (obrigatória): a meta final, impressa no X do mapa. Curta.
+  Ex.: $10M ARR, 100 new clients, R$ 5M em vendas
+- idioma: pt (português) ou en (inglês). Vazio: en.
+- estilo: colorido, branco ou preto. Vazio: colorido.
+- logo: link https direto para a imagem do logo (PNG, SVG, JPG ou WebP),
+  ou o código SVG colado na célula (começando com <svg).
+  Vazio: dá para enviar o arquivo na tela de conferência ou depois no editor.
+
+REGRAS
+- Uma empresa por linha. Sem linhas em branco no meio, sem células mescladas.
+- Não mude o nome das colunas.
+- Se um texto tiver ponto e vírgula, coloque-o entre aspas.
+
+EXEMPLO (CSV)
+empresa;demo;meta;idioma;estilo;logo
+Acme;app.isla.to/acme;$10M ARR;en;colorido;https://acme.com/logo.png
+Padaria Pão Dourado;app.isla.to/pao-dourado;R$ 5M em vendas;pt;colorido;
+Northwind;northwind;100 new clients;en;branco;
+
+PARA PEDIR A UMA IA ORGANIZAR SUA LISTA
+Cole este arquivo e a sua lista na conversa e peça:
+"Converta a minha lista para um CSV separado por ponto e vírgula com exatamente as colunas
+empresa;demo;meta;idioma;estilo;logo, seguindo as regras deste arquivo.
+Não invente dados: deixe vazio o que não estiver na lista. Responda só com o CSV."

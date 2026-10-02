@@ -1,0 +1,7 @@
+node_modules
+dist
+scripts/*.png
+.env*
+!.env.example
+*.local
+tsconfig.tsbuildinfo

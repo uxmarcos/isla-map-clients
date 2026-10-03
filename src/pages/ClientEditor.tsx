@@ -14,7 +14,7 @@ import { fileToLogo } from '../map/logo'
 import { Button, Label, StatusDot } from '../ui/kit'
 import { navigate, setLeaveGuard } from '../router'
 import { toast } from '../ui/toast'
-import { checkQrUrl, QR_HOST } from '../qr'
+import { checkQrUrl, normalizeQrUrl, QR_EXAMPLE } from '../qr'
 
 const LOGO_MODES: { id: LogoMode; label: string }[] = [
   { id: 'original', label: 'Original' },
@@ -210,13 +210,14 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               <input
                 className={`field ${qr.ok ? '' : c.qrUrl?.trim() ? '!border-[#ff8a7a]/70' : ''}`}
                 value={c.qrUrl ?? ''}
-                placeholder={`https://${QR_HOST}/q/…`}
+                placeholder={QR_EXAMPLE}
                 inputMode="url"
                 spellCheck={false}
                 onChange={(e) => set({ qrUrl: e.target.value.trim() })}
+                onBlur={() => set({ qrUrl: normalizeQrUrl(c.qrUrl) })}
               />
-              <p className={`mt-2 text-[12px] ${qr.ok ? (qr.warning ? 'text-[#e8b86a]' : 'text-grey-2') : 'text-[#ff8a7a]'}`}>
-                {qr.ok ? qr.warning ?? 'O QR do mapa e da carta abre exatamente este link. Teste com a câmera antes de imprimir.' : qr.error}
+              <p className={`mt-2 text-[12px] ${qr.ok ? 'text-grey-2' : 'text-[#ff8a7a]'}`}>
+                {qr.ok ? 'O QR do mapa e da carta abre exatamente este link. Teste com a câmera antes de imprimir.' : qr.error}
               </p>
             </div>
           </section>
@@ -398,7 +399,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               </div>
             )}
             <p className="mt-4 text-[12px] text-grey-2">
-              {STYLE_LABEL[c.style]} · {LANG_LABEL[c.lang]} · {view === 'map' ? `A4, ${PRINT_MM.w} × ${PRINT_MM.h} mm` : 'A4, 210 × 297 mm'} · {qr.ok ? `QR → ${c.qrUrl}` : 'QR pendente'}
+              {STYLE_LABEL[c.style]} · {LANG_LABEL[c.lang]} · {view === 'map' ? `A4, ${PRINT_MM.w} × ${PRINT_MM.h} mm` : 'A4, 210 × 297 mm'} · {qr.ok ? `QR → ${qr.url}` : 'QR pendente'}
             </p>
             {!qr.ok && (
               <p className="mt-2 text-[12px] text-[#ff8a7a]">Sem a URL do QR não dá para exportar: o mapa impresso sem ela não abre o presente.</p>

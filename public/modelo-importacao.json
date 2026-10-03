@@ -1,5 +1,5 @@
 [
-  { "empresa": "Acme", "qr": "https://app.isla.to/q/EXEMPLO1", "meta": "$10M ARR", "idioma": "en", "estilo": "colorido", "logo": "https://acme.com/logo.png" },
-  { "empresa": "Padaria Pão Dourado", "qr": "https://app.isla.to/q/EXEMPLO2", "meta": "R$ 5M em vendas", "idioma": "pt", "estilo": "colorido", "logo": "" },
+  { "empresa": "Acme", "qr": "https://gift.isla.to/acme", "meta": "$10M ARR", "idioma": "en", "estilo": "colorido", "logo": "https://acme.com/logo.png" },
+  { "empresa": "Padaria Pão Dourado", "qr": "https://gift.isla.to/paodourado", "meta": "R$ 5M em vendas", "idioma": "pt", "estilo": "colorido", "logo": "" },
   { "empresa": "Northwind", "qr": "", "meta": "100 new clients", "idioma": "en", "estilo": "branco", "logo": "" }
 ]

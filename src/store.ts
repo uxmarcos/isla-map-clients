@@ -3,6 +3,7 @@ import type { Client, Dangers, Lang, MapData } from './types'
 import { supabase } from './supabase'
 import { downloadLogo, logoPathFor, removeLogos, uploadLogo } from './logos'
 import { toast } from './ui/toast'
+import { normalizeQrUrl } from './qr'
 
 // Maps and settings live in Supabase (schema maps: tables clients and settings, logos in the
 // maps-logos bucket), shared by Isla's super admins. The schema is a migration in isla-app.
@@ -132,7 +133,7 @@ async function toRow(c: Client): Promise<Row & { logoPath: string | null }> {
     removeLogos(supabase!, c.id, logoPath).catch(() => {}) // the old file, if the logo changed
   } else if (!c.logo && c.logoPath) removeLogos(supabase!, c.id).catch(() => {})
   const data = { ...c, logo: null, logoPath }
-  return { id: c.id, data, status: c.status, qr_url: c.qrUrl?.trim() || null, logoPath }
+  return { id: c.id, data, status: c.status, qr_url: normalizeQrUrl(c.qrUrl) || null, logoPath }
 }
 
 const deletedIds = new Set<string>()
@@ -261,7 +262,7 @@ export function newClient(): Client {
   }
 }
 
-/** A new map for the same client: everything personalised is kept (name, logo, goal, demo, texts); status starts over. */
+/** A new map for the same client: everything personalised is kept (name, logo, goal, gift link, texts); status starts over. */
 export function mapFrom(c: Client): Client {
   const fresh = newClient()
   return { ...structuredClone(c), id: fresh.id, clientId: c.clientId ?? c.id, status: 'draft', notes: '', createdAt: fresh.createdAt, updatedAt: fresh.updatedAt }
@@ -269,7 +270,7 @@ export function mapFrom(c: Client): Client {
 
 /** Inserts or replaces a map: shown right away, then written to the database. */
 export async function saveClient(c: Client) {
-  const saved = { ...c, slug: c.slug || uniqueSlug(c.company, c.id), updatedAt: Date.now() }
+  const saved = { ...c, slug: c.slug || uniqueSlug(c.company, c.id), qrUrl: normalizeQrUrl(c.qrUrl), updatedAt: Date.now() }
   clients = clients.some((x) => x.id === c.id) ? clients.map((x) => (x.id === c.id ? saved : x)) : [saved, ...clients]
   emit()
   if (!supabase) return persistLocal()
@@ -287,7 +288,7 @@ export async function saveClient(c: Client) {
 export async function saveClients(list: Client[]) {
   const now = Date.now()
   // Same creation instant would scramble the order; keep the list's order, first on top.
-  const saved = list.map((c, i) => ({ ...c, createdAt: now - i, updatedAt: now }))
+  const saved = list.map((c, i) => ({ ...c, qrUrl: normalizeQrUrl(c.qrUrl), createdAt: now - i, updatedAt: now }))
   clients = [...saved, ...clients].sort(byNewest)
   emit()
   if (!supabase) return persistLocal()
@@ -360,6 +361,6 @@ export function toMapData(c: Client): MapData {
     start: c.start ?? '',
     dangers: migrateDangers(c.dangers, c.lang ?? 'en'),
     destination: c.destination,
-    qrUrl: (c.qrUrl ?? '').trim(),
+    qrUrl: normalizeQrUrl(c.qrUrl),
   }
 }

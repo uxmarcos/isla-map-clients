@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { sendMagicLink, signInWithPassword, signOut, supabase } from '../supabase'
+import { REQUIRE_LOGIN, signInWithPassword, signOut, supabase } from '../supabase'
+import { QR_BASE } from '../qr'
 import { Button, Mark, Rise } from '../ui/kit'
 
 function Shell({ children }: { children: ReactNode }) {
@@ -11,64 +12,52 @@ function Shell({ children }: { children: ReactNode }) {
   )
 }
 
+/** Env vars the Studio can't work without: Supabase, and the base of the gift links. */
+export function missingSetup() {
+  return [
+    REQUIRE_LOGIN && !supabase && 'VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY',
+    !QR_BASE && 'VITE_QR_BASE_URL (test: https://testv2.isla.to/gift, prod: https://gift.isla.to)',
+  ].filter(Boolean) as string[]
+}
+
+export function Setup({ missing }: { missing: string[] }) {
+  return (
+    <Shell>
+      <p className="eyebrow fade-up">Configuração pendente</p>
+      <h1 className="text-h2 mt-6">
+        Falta configurar o <em>ambiente</em>.
+      </h1>
+      <p className="text-lede mt-6 max-w-md">Defina no ambiente e publique de novo:</p>
+      <ul className="mt-4 max-w-md text-[14px] text-grey-1">
+        {missing.map((m) => (
+          <li key={m} className="mt-1 font-mono">
+            {m}
+          </li>
+        ))}
+      </ul>
+    </Shell>
+  )
+}
+
+// Password only: the shared Auth's email template sends an 8-digit code, not a link, and the
+// Studio's domain isn't in the Redirect URLs, so a magic link would never get back here.
 export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<'password' | 'link'>('password')
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [state, setState] = useState<'idle' | 'sending' | 'error'>('idle')
   const [error, setError] = useState('')
-
-  if (!supabase) {
-    return (
-      <Shell>
-        <p className="eyebrow fade-up">Configuração pendente</p>
-        <h1 className="text-h2 mt-6">
-          Falta conectar o <em>banco</em>.
-        </h1>
-        <p className="text-lede mt-6 max-w-md">
-          Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente e publique de novo.
-        </p>
-      </Shell>
-    )
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setState('sending')
     try {
-      if (mode === 'password') {
-        await signInWithPassword(email.trim(), password)
-        return // the session change swaps this screen out
-      }
-      await sendMagicLink(email.trim())
-      setState('sent')
+      await signInWithPassword(email.trim(), password)
+      // The session change swaps this screen out.
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      // shouldCreateUser is off, so unknown emails are refused.
-      setError(
-        /invalid login credentials/i.test(msg)
-          ? 'email ou senha incorretos.'
-          : /signup|not allowed|not found/i.test(msg)
-            ? 'este email não tem conta. Peça para alguém da equipe liberar seu acesso.'
-            : msg,
-      )
+      setError(/invalid login credentials/i.test(msg) ? 'email ou senha incorretos.' : msg)
       setState('error')
     }
-  }
-
-  if (state === 'sent') {
-    return (
-      <Shell>
-        <p className="eyebrow fade-up">Link enviado</p>
-        <Rise text="Confira seu *email*." className="text-h2 mt-6" />
-        <p className="text-lede fade-up mt-6 max-w-md" style={{ animationDelay: '200ms' }}>
-          Mandamos um link de acesso para {email.trim()}. Abra neste mesmo navegador.
-        </p>
-        <Button variant="quiet" size="sm" className="mt-8" onClick={() => setState('idle')}>
-          Usar outro email
-        </Button>
-      </Shell>
-    )
   }
 
   return (
@@ -85,34 +74,22 @@ export function Login() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        {mode === 'password' && (
-          <input
-            className="field text-center"
-            type="password"
-            required
-            placeholder="Senha"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        )}
+        <input
+          className="field text-center"
+          type="password"
+          required
+          placeholder="Senha"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
         <Button size="lg" arrow disabled={state === 'sending'}>
-          {state === 'sending' ? (mode === 'password' ? 'Entrando…' : 'Enviando…') : mode === 'password' ? 'Entrar' : 'Receber link de acesso'}
+          {state === 'sending' ? 'Entrando…' : 'Entrar'}
         </Button>
         {state === 'error' && <p className="text-[13px] text-grey-1">Não foi possível entrar: {error}</p>}
-        <button
-          type="button"
-          className="mt-1 cursor-pointer text-[13px] text-grey-2 transition-colors duration-500 hover:text-porcelain"
-          onClick={() => {
-            setMode(mode === 'password' ? 'link' : 'password')
-            setState('idle')
-          }}
-        >
-          {mode === 'password' ? 'Prefiro receber um link por email' : 'Entrar com senha'}
-        </button>
       </form>
       <p className="fade-up mt-8 text-[12px] text-grey-2" style={{ animationDelay: '300ms' }}>
-        Uso interno. Só emails liberados pela equipe têm acesso.
+        Uso interno. Entre com a mesma conta de super admin do app da Isla.
       </p>
     </Shell>
   )

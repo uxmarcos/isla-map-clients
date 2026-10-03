@@ -108,7 +108,7 @@ export async function downloadPdf(c: Client, o: PdfOptions = {}) {
   download(await pdfBlob(c, o), `${fileBase(c)}${o.margin ? '-margem' : ''}.pdf`)
 }
 
-/** Maps without a valid QR URL are left out; returns their names. */
+/** Maps without a valid gift link (missing, old or malformed) are left out; returns their names. */
 export async function downloadZip(all: Client[], onProgress?: (done: number) => void): Promise<string[]> {
   const skipped = all.filter((c) => !checkQrUrl(c.qrUrl).ok).map((c) => c.company || 'Sem nome')
   const list = all.filter((c) => checkQrUrl(c.qrUrl).ok)

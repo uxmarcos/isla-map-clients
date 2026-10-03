@@ -41,7 +41,7 @@ export function ClientList() {
     try {
       const skipped = await downloadZip(shown, (n) => setZipping(`${n}/${shown.length}`))
       if (skipped.length)
-        toast(skipped.length === shown.length ? 'Nenhum mapa tem URL do QR: nada foi exportado.' : `${skipped.length} sem URL do QR ficaram de fora do .zip:`, {
+        toast(skipped.length === shown.length ? 'Nenhum mapa tem link de presente válido: nada foi exportado.' : `${skipped.length} sem link de presente válido ${skipped.length === 1 ? 'ficou' : 'ficaram'} de fora do .zip:`, {
           tone: 'error',
           detail: skipped,
         })
@@ -56,7 +56,7 @@ export function ClientList() {
         <p className="eyebrow eyebrow-line fade-up">Campanha do baú</p>
         <Rise text="Um mapa para cada *baú*." className="text-h1 mt-6" />
         <p className="text-lede fade-up mt-6 max-w-xl" style={{ animationDelay: '200ms' }}>
-          Cadastre a empresa, o logo e a meta. O mapa sai pronto para imprimir, com o QR que leva à demo.
+          Cadastre a empresa, o logo e a meta. O mapa sai pronto para imprimir, com o QR que abre o presente.
         </p>
         <div className="fade-up mt-8 flex flex-wrap gap-2 sm:hidden" style={{ animationDelay: '250ms' }}>
           <Button arrow onClick={() => navigate('#/new')}>

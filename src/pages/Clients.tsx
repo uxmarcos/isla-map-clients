@@ -13,7 +13,7 @@ interface Customer {
 
 /**
  * Maps belong to the same client when one was started from the other (clientId), or when they
- * share the demo address or the company name. Renaming a map started from another keeps it linked.
+ * share the slug or the company name. Renaming a map started from another keeps it linked.
  */
 function group(maps: Client[]): Customer[] {
   const parent = new Map<string, string>()
@@ -69,7 +69,7 @@ export function Clients() {
         <p className="eyebrow eyebrow-line fade-up">Clientes</p>
         <Rise text="Quem já tem *mapa*." className="text-h1 mt-6" />
         <p className="text-lede fade-up mt-6 max-w-xl" style={{ animationDelay: '200ms' }}>
-          Cada empresa com mapa vira um cliente, com o nome, a meta, o logo e a demo do último mapa. Use para consultar ou para fazer outro mapa já preenchido.
+          Cada empresa com mapa vira um cliente, com o nome, a meta, o logo e o link do presente do último mapa. Use para consultar ou para fazer outro mapa já preenchido.
         </p>
       </section>
 

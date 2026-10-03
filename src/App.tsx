@@ -6,7 +6,7 @@ import { ClientEditor } from './pages/ClientEditor'
 import { Settings } from './pages/Settings'
 import { Import } from './pages/Import'
 import { Clients } from './pages/Clients'
-import { Denied, Login, SyncError } from './pages/Login'
+import { Denied, Login, missingSetup, Setup, SyncError } from './pages/Login'
 import { Toaster } from './ui/toast'
 import { REQUIRE_LOGIN, useAuthReady, useSession } from './supabase'
 import { connect, disconnect, useSync } from './store'
@@ -23,8 +23,10 @@ export default function App() {
     else disconnect()
   }, [email])
 
+  const missing = missingSetup()
   let page
-  if (REQUIRE_LOGIN && !authReady) page = null
+  if (missing.length) page = <Setup missing={missing} />
+  else if (REQUIRE_LOGIN && !authReady) page = null
   else if (REQUIRE_LOGIN && !session) page = <Login />
   else if (sync.state === 'denied') page = <Denied email={email ?? ''} />
   else if (sync.state === 'error') page = <SyncError message={sync.message} retry={connect} />

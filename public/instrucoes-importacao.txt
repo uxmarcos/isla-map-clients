@@ -1,5 +1,12 @@
 LISTA PARA O ISLA MAP STUDIO: COMO MONTAR
 
+!!! ATENÇÃO: A COLUNA qr SÓ PODE SER COPIADA !!!
+A IA (ou quem montar a lista) NUNCA cria, completa, corrige ou altera o link da coluna qr.
+Só copia, caractere por caractere, o link que veio na lista original.
+Se o link não estiver na lista, deixe a célula vazia. Não monte o link a partir do nome
+ou do domínio da empresa, mesmo que pareça óbvio: um link errado leva o presente
+para outra empresa ou não abre nada.
+
 O Map Studio cria um mapa do tesouro e uma carta para cada linha da lista.
 Envie um arquivo CSV (separado por ponto e vírgula ou vírgula) ou JSON (uma lista de objetos).
 A primeira linha do CSV é o cabeçalho, com exatamente estas colunas:
@@ -8,9 +15,10 @@ empresa;qr;meta;idioma;estilo;logo
 
 COLUNAS
 - empresa (obrigatória): nome da empresa, como deve sair impresso. Ex.: Acme
-- qr: o link do presente (QR dinâmico), copiado do painel /admin/gifts da Isla,
-  completo, começando com https:// (ex.: https://app.isla.to/q/abc123).
-  Vai no QR exatamente como está. Não invente nem monte esse link.
+- qr: o link do presente da empresa, copiado do painel /admin/gifts da Isla,
+  completo, no formato https://gift.isla.to/<empresa> (ex.: https://gift.isla.to/abacatepay).
+  Cada empresa tem o seu link: o mesmo link nunca aparece em duas linhas.
+  Links antigos (com /q/, com ?t= ou /gift/expired) não funcionam mais.
   Vazio: o mapa é criado, mas só pode ser exportado depois que o link for colado.
 - meta (obrigatória): a meta final, impressa no X do mapa. Curta.
   Ex.: $10M ARR, 100 new clients, R$ 5M em vendas
@@ -27,12 +35,14 @@ REGRAS
 
 EXEMPLO (CSV)
 empresa;qr;meta;idioma;estilo;logo
-Acme;https://app.isla.to/q/EXEMPLO1;$10M ARR;en;colorido;https://acme.com/logo.png
-Padaria Pão Dourado;https://app.isla.to/q/EXEMPLO2;R$ 5M em vendas;pt;colorido;
+Acme;https://gift.isla.to/acme;$10M ARR;en;colorido;https://acme.com/logo.png
+Padaria Pão Dourado;https://gift.isla.to/paodourado;R$ 5M em vendas;pt;colorido;
 Northwind;;100 new clients;en;branco;
 
 PARA PEDIR A UMA IA ORGANIZAR SUA LISTA
 Cole este arquivo e a sua lista na conversa e peça:
 "Converta a minha lista para um CSV separado por ponto e vírgula com exatamente as colunas
 empresa;qr;meta;idioma;estilo;logo, seguindo as regras deste arquivo.
-Não invente dados: deixe vazio o que não estiver na lista. Responda só com o CSV."
+Não invente dados: deixe vazio o que não estiver na lista.
+Na coluna qr, copie o link exatamente como está na minha lista; nunca crie nem altere esse link.
+Responda só com o CSV."

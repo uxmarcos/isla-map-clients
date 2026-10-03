@@ -44,16 +44,6 @@ export const useSession = () => useSyncExternalStore(subscribe, () => session)
 export const useAuthReady = () => useSyncExternalStore(subscribe, () => ready)
 export const currentEmail = () => session?.user.email ?? null
 
-export async function sendMagicLink(email: string) {
-  if (!supabase) throw new Error('Supabase não configurado')
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    // Shared Auth with the Isla product: never create users from here.
-    options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
-  })
-  if (error) throw error
-}
-
 export async function signInWithPassword(email: string, password: string) {
   if (!supabase) throw new Error('Supabase não configurado')
   const { error } = await supabase.auth.signInWithPassword({ email, password })

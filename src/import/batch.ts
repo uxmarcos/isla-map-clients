@@ -3,12 +3,13 @@ import type { Client, Lang, MapStyle } from '../types'
 import { DEFAULT_DANGERS, DEFAULT_NOTES, newClient, uniqueSlug, type Settings } from '../store'
 import { fileToLogo } from '../map/logo'
 import type { RawRow } from './parse'
+import { normalizeQrUrl } from '../qr'
 
 /** One map to create, as shown (and editable) in the import preview. */
 export interface ImportRow {
   row: number
   company: string
-  /** The gift's dynamic link from /admin/gifts, encoded in the QR exactly as given. */
+  /** The gift's link from /admin/gifts (<base>/<slug>), copied as is; normalized when the map is created. */
   qr: string
   goal: string
   lang: Lang
@@ -25,6 +26,7 @@ export const interpret = (raw: RawRow[]): ImportRow[] => raw.map(localRow)
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '')
 const ALIASES: Record<'company' | 'qr' | 'goal' | 'lang' | 'style' | 'logo', string[]> = {
   company: ['empresa', 'company', 'nome', 'name', 'cliente', 'client', 'companyname', 'nomedaempresa', 'razaosocial'],
+  // 'demo': the column's name in older lists.
   qr: ['qr', 'urldoqr', 'qrurl', 'linkdoqr', 'linkdopresente', 'presente', 'gift', 'giftlink', 'gifturl', 'url', 'link', 'demo'],
   goal: ['meta', 'metafinal', 'goal', 'objetivo', 'destino', 'destination', 'target', 'tesouro'],
   lang: ['idioma', 'lang', 'language', 'lingua'],
@@ -134,7 +136,7 @@ export function toClient(r: ImportRow, slug: string, logo: string | null, settin
     stageNotes: [...DEFAULT_NOTES[r.lang]],
     dangers: { ...DEFAULT_DANGERS[r.lang] },
     logo,
-    qrUrl: r.qr.trim(),
+    qrUrl: normalizeQrUrl(r.qr),
     notes: 'Importado em lote.',
   }
 }

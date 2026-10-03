@@ -64,3 +64,9 @@ export function normalizeQrUrl(value: string | undefined | null) {
   const q = checkQrUrl(value)
   return q.ok ? q.url : (value ?? '').trim()
 }
+
+/** The gift link as printed under the QR: no scheme (gift.isla.to/acme), empty when not valid yet. */
+export function qrLabel(value: string | undefined | null) {
+  const q = checkQrUrl(value)
+  return q.ok ? q.url.replace(/^https?:\/\//i, '') : ''
+}

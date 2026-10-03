@@ -1,4 +1,5 @@
 import QRCode from 'qrcode'
+import { qrLabel } from '../qr'
 import type { Lang, MapData, MapStyle } from '../types'
 import { TEMPLATES, type Plaque, type TemplateSpec, type TextSlot } from './layout'
 import { loadImage } from './logo'
@@ -22,10 +23,10 @@ export const loadMapFonts = () =>
 type Ctx = CanvasRenderingContext2D
 
 /** Fixed text printed on the map. */
-const COPY: Record<Lang, { titlePrefix: string; titleLast: string; path: string; scan: string; fallback: string; here: string }> = {
-  en: { titlePrefix: 'THE', titleLast: 'TREASURE MAP', path: 'THE PATH TO', scan: 'SCAN TO OPEN YOUR GIFT', fallback: 'COMPANY', here: 'YOU ARE HERE' },
+const COPY: Record<Lang, { titlePrefix: string; titleLast: string; path: string; visit: string; scan: string; fallback: string; here: string }> = {
+  en: { titlePrefix: 'THE', titleLast: 'TREASURE MAP', path: 'THE PATH TO', visit: 'VISIT', scan: 'SCAN TO OPEN YOUR GIFT', fallback: 'COMPANY', here: 'YOU ARE HERE' },
   // No article before the name: Portuguese would need "DA" or "DO" depending on the company.
-  pt: { titlePrefix: '', titleLast: 'MAPA DO TESOURO', path: 'O CAMINHO ATÉ', scan: 'ESCANEIE PARA ABRIR SEU PRESENTE', fallback: 'EMPRESA', here: 'VOCÊ ESTÁ AQUI' },
+  pt: { titlePrefix: '', titleLast: 'MAPA DO TESOURO', path: 'O CAMINHO ATÉ', visit: 'ACESSE', scan: 'ESCANEIE PARA ABRIR SEU PRESENTE', fallback: 'EMPRESA', here: 'VOCÊ ESTÁ AQUI' },
 }
 
 const upper = (s: string) => s.trim().toLocaleUpperCase('pt-BR')
@@ -73,8 +74,9 @@ export function drawMap(
 
   drawQr(ctx, t, data.qrUrl)
   ctx.fillStyle = t.ink
-  // Where the URL used to be: the gift link is not something to type in, so only an invitation.
-  const urlW = drawFitted(ctx, copy.scan, t.fonts.url, t.url)
+  // The gift link is short (gift.isla.to/acme), so it is printed too; without it, only an invitation.
+  const label = qrLabel(data.qrUrl)
+  const urlW = drawFitted(ctx, label ? `${copy.visit} ${upper(label)}` : copy.scan, t.fonts.url, t.url)
   if (t.urlRules) drawUrlRules(ctx, t, urlW)
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)

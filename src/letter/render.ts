@@ -6,6 +6,7 @@ import type { Lang, LetterText, MapStyle } from '../types'
 import { loadImage } from '../map/logo'
 import { MARK_PATH, MARK_VIEWBOX } from '../map/islaMark'
 import { fillVars, PIPELINE } from './copy'
+import { qrLabel } from '../qr'
 
 const SERIF = '"Libre Baskerville", "Times New Roman", serif'
 /** Body text on the letter; headings use the map's serif. */
@@ -177,8 +178,9 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
     sy += 50 * 1.5
   }
   qr(ctx, rc, t, d.qrUrl, qrX, qrY, qrSize)
-  // No URL under the code: the gift link is not something to type in.
-  text(ctx, v(d.text.qrCaption).toLocaleUpperCase('pt-BR'), qrX + qrSize / 2, qrY + qrSize + 64, `700 24px ${SANS}`, t.ink, 'center', 0.2)
+  const label = qrLabel(d.qrUrl)
+  text(ctx, v(d.text.qrCaption).toLocaleUpperCase('pt-BR'), qrX + qrSize / 2, qrY + qrSize + (label ? 58 : 64), `700 24px ${SANS}`, t.ink, 'center', 0.2)
+  if (label) text(ctx, label.toUpperCase(), qrX + qrSize / 2, qrY + qrSize + 98, `500 23px ${SANS}`, t.soft, 'center', 0.14)
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
